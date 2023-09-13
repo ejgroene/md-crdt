@@ -28,7 +28,8 @@ VARIANT_MASK   = 0x0000000000000000C000000000000000
 RAND_B_MASK    = 0x00000000000000003FFFFFFFFFFFFFFF
 
 def shift_count(m):
-    return len(bin(m)) - len(bin(m).rstrip('0'))
+    b = bin(m)
+    return len(b) - b.rfind('1') - 1
 
 TIMESTAMP_SHIFT = shift_count(TIMESTAMP_MASK)
 VERSION_SHIFT = shift_count(VERSION_MASK)
@@ -54,7 +55,7 @@ class UUID7(uuid.UUID):
             _last_v7_counter = 0
         _last_v7_timestamp = timestamp
         rand_a = _last_v7_counter
-        rand_b = rnd or secrets.randbits(62)
+        rand_b = rnd or secrets.randbits(RAND_B_SHIFT)
         super().__init__(int=
             timestamp << TIMESTAMP_SHIFT & TIMESTAMP_MASK
             | version << VERSION_SHIFT & VERSION_MASK
@@ -65,7 +66,7 @@ class UUID7(uuid.UUID):
 
     @property
     def time(self):
-        return (self.int & TIMESTAMP_MASK) >> 80
+        return (self.int & TIMESTAMP_MASK) >> TIMESTAMP_SHIFT
     
 
 @test
