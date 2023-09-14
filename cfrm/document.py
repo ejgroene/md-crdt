@@ -6,6 +6,7 @@ from rdflib.plugins.serializers.jsonld import from_rdf
 
 import json
 import operator
+import itertools
 
 from .operations import Publish, Retract
 from .uuid7 import UUID7
@@ -20,41 +21,70 @@ def fix_urirefs(subjects, idx=None):
         if '@id' in subject and len(subject) > 1:
             idx[subject['@id']] = subject
     for i, subject in enumerate(subjects):
-        if isinstance(subject, dict) and '@id' in subject and len(subject) == 1 and subject['@id'] in idx:
+        if len(subject) == 1 and subject.get('@id') in idx:
+            # replace {'@id': <uri>} with the object <uri> points to
             subjects[i] = idx[subject['@id']]
         for predicate, objects in subject.items():
             if isinstance(objects, list):
                 fix_urirefs(objects, idx=idx)
             elif isinstance(objects, URIRef):
+                # make it only a str
                 subject[predicate] = str(objects)
 
 
 class Document(pod.List):
-    __slots__ = ['_graph', '_operations']
+    __slots__ = ['_roots', '_index', '_child', '_quads', '_graph']
 
     def __init__(self):
-        self._graph = Graph()
-        self._operations = {}
+        self._roots = [] # document roots (no base)
+        self._index = {} # maps id to operation; quick/clean lookup
+        self._child = {} # maps id to ids of children; forms tree
+        self._quads = {} # all triples part of the end result
+        self._graph = Graph() # helper for creating json-ld
 
+    def add_op(self, op):
+        " Just add an operation to the set."
+        self._index[op.id] = op
+        if 'base' in op:
+            self._child.setdefault(op.base, []).append(op.id)
+        else:
+            self._roots.append(op.id)
+
+    def walk_ops(self, ops=None):
+        " Recursively visit all operations in the tree "
+        op_ids = self._roots if ops is None else ops
+        for op_id in op_ids:
+            yield self._index[op_id]
+            yield from self.walk_ops(self._child.get(op_id, ()))
+        
     def publish(self, op):
+        " Admit a triple to the result."
         s = URIRef(op.subject)
         p = URIRef(op.predicate)
         v = op.object
         o = URIRef(v['@id']) if isinstance(v, dict) else Literal(v)
-        self._operations[str(op.id)] = s, p, o, self._graph
+        self._quads[str(op.id)] = s, p, o, self._graph
 
     def retract(self, op):
-        if str(op.base) not in self._operations:
+        " Remove one triple from the end result."
+        if str(op.base) not in self._quads:
+            "visting is order, so already retracted"
             return
-        del self._operations[str(op.base)]
+        del self._quads[str(op.base)]
 
     def apply_all(self, *ops):
-        self.clear()
+        " Add more operations. Regenerate result."
         self._graph.remove((None, None, None))
         for op in ops:
+            self.add_op(op)
+        for op in self.walk_ops():
             op.apply(self)
-        self._graph.addN(q for q in self._operations.values())
-        self.extend(from_rdf(self._graph, use_native_types=True))
+        self.to_jsonld()
+
+    def to_jsonld(self):
+        " Helper for making JSON-LD."
+        self._graph.addN(q for q in self._quads.values())
+        self[:] = from_rdf(self._graph, use_native_types=True)
         fix_urirefs(self)
         self.sort(key=operator.itemgetter('@id'))
         
@@ -99,7 +129,7 @@ def retract_statement():
     o.apply_all(Retract(base=pub0.id))
     test.eq([{'@id': 'root0', 'A': [{'@value': 'hi'}]}], o)
     o.apply_all(Retract(base=pub1.id))
-    test.eq({}, o._operations)
+    test.eq({}, o._quads)
     test.eq([], o)
 
 
@@ -214,27 +244,23 @@ def retract_bunch():
 
 @test
 def concurrent_edit():
-    """ These actually do not exists... every triple is unique. What is possible though is 
-        a triple being retracted concurrently, but what exactly is the conflict then???
-        In fact, the only real concurrent edit that could lead to a conflict is when
-        a triple is retracted, republish, retracted, and so on. As multiple parties could both retracted
-        the same triple, and multiple parties could also republish it, the question is: what is
-        the last known state? Retracted or not? We need to know to what triple a retract operates on.
-        Let's see.
+    # A publishes this
+    p0 = Publish(subject='a', predicate='b', object='c')
+    # B corrects this
+    r0 = Retract(base=p0.id)
+    p1 = Publish(subject='a', predicate='b', object='d', base=r0.id)
+    # A does not agree...
+    r1 = Retract(base=p1.id)
+    p2 = Publish(subject='a', predicate='b', object='c', base=r1.id)
 
-            A           B           C           D
-        pub(i0, b=0, a,b,c)  ret(d0, b=i0)  ret(d1, b=i1)  pub(i1, b=d1, a,b,c)
-
-        These are all concurrent. What if we get the in this order: A B D C?
-        How can we know C should have operated on A and not on D. So the end result is (a,b,c).
-
-        A retract should explicitly point to a 'base'. For practical purposes we could use:
-        1. add the timestamp to the triple (full reification, by all properties)
-           (the timestamp actually contains very few useful bits of information)
-        2. given every triple its own id (full reification, by seperate identifier)
-           We could use UUID1 for this, which contains a timestamp as well.
-           Or the new UUID 5 or 6?
-     """
+    # we get this in order
+    d = Document()
+    d.apply_all(p0, r0, p1, r1, p2)
+    test.eq([{'@id': 'a', 'b': [{'@value': 'c'}]}], d)
    
-
-
+    # we do not get this in order
+    for p in itertools.permutations([p0, r0, p1, r1, p2]):
+        d = Document()
+        d.apply_all(*p)
+        test.eq([{'@id': 'a', 'b': [{'@value': 'c'}]}], d)
+    
