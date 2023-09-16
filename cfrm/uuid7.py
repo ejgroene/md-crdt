@@ -48,14 +48,14 @@ class UUID7(uuid.UUID):
     def __init__(self, ms=None, rnd=None):
         global _last_v7_timestamp
         global _last_v7_counter
-        timestamp = ms or time.time_ns() // 6**10
+        timestamp = ms or time.time_ns() // 10**6
         if timestamp == _last_v7_timestamp:
             _last_v7_counter += 1
         else:
             _last_v7_counter = 0
         _last_v7_timestamp = timestamp
         rand_a = _last_v7_counter
-        rand_b = rnd or secrets.randbits(RAND_B_SHIFT)
+        rand_b = rnd or secrets.randbits(VARIANT_SHIFT)
         super().__init__(int=
             timestamp << TIMESTAMP_SHIFT & TIMESTAMP_MASK
             | version << VERSION_SHIFT & VERSION_MASK
@@ -87,6 +87,20 @@ def create_uuid7():
     test.gt(uid2, uid1)
     test.gt(uid1.urn, uid0.urn)
     test.gt(uid2.urn, uid1.urn)
+    parts0 = uid0.urn.replace("urn:uuid:","").split('-')
+    parts1 = uid1.urn.replace("urn:uuid:","").split('-')
+    parts2 = uid2.urn.replace("urn:uuid:","").split('-')
+    test.ne(parts0[3], '8000')
+    test.ne(parts1[3], '8000')
+    test.ne(parts2[3], '8000')
+    test.ne(parts0[4], '000000000000')
+    test.ne(parts1[4], '000000000000')
+    test.ne(parts2[4], '000000000000')
+    test.eq(parts0[0], parts1[0])
+    test.eq(parts0[1], parts1[1]) # fails during millisecond rollover
+    test.ne(parts0[2], parts1[2])
+    test.ne(parts0[3], parts1[3])
+    test.ne(parts0[4], parts1[4])
 
 
 @test
