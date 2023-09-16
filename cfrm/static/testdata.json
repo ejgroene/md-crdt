@@ -1,0 +1,128 @@
+[
+  {
+    "case": "Create One Object with One Property",
+    "operations": [
+      {
+        "@id":  "op0",
+        "subject": "johnsmoothie",
+        "predicate": "name",
+        "object": "John"
+      }
+    ],
+    "result": [
+      {
+        "@id": "johnsmoothie",
+        "name": [{"@value": "John"}]
+      }
+    ]
+  },
+
+  {
+    "case": "Replace one property",
+    "operations": [
+      {
+        "@id":  "op0",
+        "subject": "johnsmoothie",
+        "predicate": "name",
+        "object": "John"
+      },
+      {
+        "@id": "op1",
+        "base": "op0",
+        "operation": "retract"
+      },
+      {
+        "@id": "op2",
+        "base": "op1",
+        "subject": "johnsmoothie",
+        "predicate": "name",
+        "object": "Mr Smoothie"
+      }
+    ],
+    "result": [
+      {
+        "@id": "johnsmoothie",
+        "name": [{"@value": "Mr Smoothie"}]
+      }
+    ]
+  },
+  {
+    "case": "Create Sub Node",
+    "operations": [
+      {
+        "@id": "op0",
+        "subject": "johnsmoothie",
+        "predicate": "address",
+        "object": {"@id": "johnsaddress"}
+      },
+      {
+        "@id": "op1",
+        "base": "op0",
+        "subject": "johnsaddress",
+        "predicate": "street",
+        "object": "Noskvig 18"
+      }
+    ],
+    "result": [
+      {
+        "@id": "johnsaddress",
+        "street": [{"@value": "Noskvig 18"}]
+      },
+      {
+        "@id": "johnsmoothie",
+        "address": [
+          {
+            "@id": "johnsaddress",
+            "street": [{"@value": "Noskvig 18"}]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "Edit War",
+    "operations": [
+      {
+        "@id": "op0",
+        "subject": "a",
+        "predicate": "b",
+        "object": "c",
+        "agent": "John"
+      },
+      {
+        "@id": "op1",
+        "base": "op0",
+        "operation": "retract",
+        "agent": "Pete"
+      },
+      {
+        "@id": "op2",
+        "base": "op1",
+        "subject": "a",
+        "predicate": "b",
+        "object": "d",
+        "agent": "Pete"
+      },
+      {
+        "@id": "op3",
+        "base": "op2",
+        "operation": "retract",
+        "agent": "John"
+      },
+      {
+        "@id": "op4",
+        "base": "op3",
+        "subject": "a",
+        "predicate": "b",
+        "object": "c",
+        "agent": "John"
+      }
+    ],
+    "result": [
+      {
+        "@id": "a",
+        "b": [{"@value": "c"}]
+      }
+    ]
+  }
+]
