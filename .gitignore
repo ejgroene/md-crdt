@@ -1,5 +1,7 @@
 # Erik's stuff
 *.swp
+libs-pack.mjs
+node_modules
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

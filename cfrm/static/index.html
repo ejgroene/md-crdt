@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/mocha/mocha.css"/>
+
+    <style>
+      /* mocha.css is not very good, so we fix it here */
+      #mocha-stats {
+        position: unset;
+      }
+    </style>
+
+    <script
+      src="https://code.jquery.com/jquery-3.7.1.slim.min.js"
+      integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
+      crossorigin="anonymous">
+    </script>
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.9.0/cdn/themes/light.css"/>
+
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.9.0/cdn/shoelace-autoloader.js">
+    </script>
+
+  </head>
+
+  <body>
+    <sl-split-panel vertical>
+      <div slot="start" id="main"></div>
+
+      <div slot="end" id="mocha">
+        <script type="module">
+          import "https://unpkg.com/chai/chai.js";      // pollute global namspace with assert stuff
+          import "https://unpkg.com/mocha/mocha.js";    // pollute global namspace with describe, it, etc
+          mocha.setup("bdd");                           // actual pollution is done here and now
+                                                      // close script to force executing setup()
+        </script>
+
+        <script type="module">
+          import {main} from "./static/app.js";         // mocha finds all tests when we import
+          mocha.checkLeaks();                           // check for global vars pollution 
+          mocha.run()                                   // runs all tests
+          main(document.getElementById("main"));        // runs the app
+        </script>
+      </div>
+    </sl-split-panel>
+  </body>
+</html>

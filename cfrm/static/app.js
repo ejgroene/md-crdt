@@ -9,3 +9,8 @@ export function main(root) {
         <crdt-editor id="editor0"/>
     `
 }
+
+
+it('should fuck all', () => {
+    console.log("Fuck All")
+})
