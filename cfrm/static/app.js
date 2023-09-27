@@ -1,4 +1,7 @@
 
+const {assert, expect, should} = chai
+
+
 import { Editor } from "./editor.js"
 customElements.define('crdt-editor', Editor)
 
@@ -10,7 +13,8 @@ export function main(root) {
     `
 }
 
-
-it('should fuck all', () => {
-    console.log("Fuck All")
+describe("App", () => {
+    it('Should Fuck All', () => {
+        assert("Fuck All")
+    })
 })

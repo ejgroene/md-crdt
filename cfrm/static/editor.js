@@ -1,6 +1,6 @@
 
 import {LitElement, html, css} from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js'
-
+const {assert, expect, should} = chai
 
 export class Editor extends LitElement {
   static properties = {
@@ -35,3 +35,13 @@ export class Editor extends LitElement {
     `;
   }
 }
+
+
+
+describe("Editor", () => {
+  it('Create Editor', () => {
+    const el = document.createElement('editor-element')
+    expect(el).not.to.be.null
+  })
+})
+

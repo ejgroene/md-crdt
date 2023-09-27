@@ -2,6 +2,8 @@
 *.swp
 libs-pack.mjs
 node_modules
+package-lock.json
+package.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
