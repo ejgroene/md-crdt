@@ -3,13 +3,13 @@ const {assert, expect, should} = chai
 
 
 import { Editor } from "./editor.js"
-customElements.define('crdt-editor', Editor)
 
 
 export function main(root) {
     document.title = "Data Editor 0.1"
     root.innerHTML = `
-        <crdt-editor id="editor0"/>
+        <h1>Data Editor 0.1</h1>
+        <!--editor-element id="editor0"/-->
     `
 }
 

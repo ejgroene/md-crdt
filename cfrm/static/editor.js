@@ -1,12 +1,16 @@
 
-import {LitElement, html, css} from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js'
 const {assert, expect, should} = chai
 
+import {LitElement, html, css} from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js'
+
+
 export class Editor extends LitElement {
-  static properties = {
-    version: {},
-    triples: {},
-  };
+  static get properties() {
+    return {
+      version: { type: String, reflect: true },
+      triples: {},
+    }
+  }
 
   static styles = css`
     :host {
@@ -18,6 +22,7 @@ export class Editor extends LitElement {
     super();
     this.version = '0.0.1';
   }
+
 
   render() {
     return html`
@@ -34,14 +39,48 @@ export class Editor extends LitElement {
     </div>
     `;
   }
+
+  my_logic() {
+    return "I am logic, or what?"
+  }
 }
 
 
+customElements.define('editor-element', Editor);
+
+
+function with_host(tests) {
+    // components need to be attached to the DOM to render
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    try {
+      tests(host)
+    } finally {
+      document.body.removeChild(host)
+    }
+}
+
 
 describe("Editor", () => {
-  it('Create Editor', () => {
-    const el = document.createElement('editor-element')
-    expect(el).not.to.be.null
+  it('Create Editor Object', () => {
+    const editor = new Editor();
+    expect(editor).not.to.be.null
+    expect(editor.my_logic()).to.equal("I am logic, or what?")
+    expect(editor.version).to.equal('0.0.1')
+    const {strings, values} = editor.render()
+    expect(values[0]).to.equal(editor.version)
+    expect(strings[0]).to.equal("\n    <div class=\"p-3 m-0 border-0 bd-example m-0 border-0\">\n        <p>Decentralized On/Offline Collaborative Conflict Free Structured Data Editor ")
+    }) 
+  
+  it('Create Editor Element', async () => {
+    with_host( async host => {
+      const edit = document.createElement('editor-element')
+      host.appendChild(edit)
+      await edit.updateComplete
+      console.log("edit:", edit)
+      // this finally works
+      // now find ways to assert the DOM with chai
+    })
   })
 })
 
