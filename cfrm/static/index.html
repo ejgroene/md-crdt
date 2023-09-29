@@ -35,24 +35,30 @@
   </head>
 
   <body>
-    <sl-split-panel vertical>
-      <div slot="start" id="main"></div>
+    <sl-tab-group placement="top">
+      <sl-tab slot="nav" panel="test">Test</sl-tab>
+      <sl-tab slot="nav" panel="main">Main</sl-tab>
+      <sl-tab-panel name="main">
+        <div id="main"></div>
+      </sl-tab-panel>
+      <sl-tab-panel name="test">
+        <div id="mocha">
+          <script type="module">
+            import "https://unpkg.com/chai/chai.js";      // pollute global namspace with 'chai'
+            import "https://unpkg.com/chai-dom/chai-dom.js"   // and some dom assertions
+            import "https://unpkg.com/mocha/mocha.js";    // pollute global namspace with describe, it, etc
+            mocha.setup("bdd");                           // actual pollution is done here and now
+                                                          // close script to force executing setup()
+          </script>
 
-      <div slot="end" id="mocha">
-        <script type="module">
-          import "https://unpkg.com/chai/chai.js";      // pollute global namspace with assert stuff
-          import "https://unpkg.com/mocha/mocha.js";    // pollute global namspace with describe, it, etc
-          mocha.setup("bdd");                           // actual pollution is done here and now
-                                                      // close script to force executing setup()
-        </script>
-
-        <script type="module">
-          import {main} from "./static/app.js";         // mocha finds all tests when we import
-          mocha.checkLeaks();                           // check for global vars pollution 
-          mocha.run()                                   // runs all tests
-          main(document.getElementById("main"));        // runs the app
-        </script>
-      </div>
-    </sl-split-panel>
+          <script type="module">
+            import {main} from "./static/app.js";         // mocha finds all tests when we import
+            mocha.checkLeaks();                           // check for global vars pollution 
+            mocha.run()                                   // runs all tests
+            main(document.getElementById("main"));        // runs the app
+          </script>
+        </div>
+      </sl-tab-panel>
+    </sl-tab-group>
   </body>
 </html>
