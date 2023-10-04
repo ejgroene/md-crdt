@@ -8,7 +8,7 @@
 
     <link
       rel="stylesheet"
-      href="https://unpkg.com/mocha/mocha.css"/>
+      href="https://unpkg.com/mocha/mocha.css">
 
     <style>
       /* mocha.css is not very good, so we fix it here */
@@ -17,21 +17,32 @@
       }
     </style>
 
-    <script
-      src="https://code.jquery.com/jquery-3.7.1.slim.min.js"
-      integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
-      crossorigin="anonymous">
-    </script>
-
     <link
       rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.9.0/cdn/themes/light.css"/>
+      href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.9.0/cdn/themes/light.css">
 
-    <script
-      type="module"
-      src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.9.0/cdn/shoelace-autoloader.js">
+    <script type="importmap">
+      {
+        "imports": {
+          "chai":      "https://unpkg.com/chai/chai.js",
+          "chai-dom":  "https://unpkg.com/chai-dom/chai-dom.js",
+          "mocha":     "https://unpkg.com/mocha/mocha.js",
+          "shoelace/": "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.9.0/cdn/",
+          "lit":       "https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js"
+        }
+      }
     </script>
 
+    <script type="module">
+      // Set base path so that shoelace can find its icons etc
+      import {setBasePath} from 'shoelace/utilities/base-path.js'
+      console.log('setBasePath', setBasePath)
+      setBasePath('https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.9.0/cdn/')
+      // components used in this page
+      import 'shoelace/components/tab/tab.js';
+      import 'shoelace/components/tab-group/tab-group.js';
+      import 'shoelace/components/tab-panel/tab-panel.js';
+    </script>
   </head>
 
   <body>
@@ -42,20 +53,19 @@
         <div id="main"></div>
       </sl-tab-panel>
       <sl-tab-panel name="test">
-        <div id="mocha">
+        <div id="mocha">                                 <!-- exact id required by mocha -->
           <script type="module">
-            import "https://unpkg.com/chai/chai.js";      // pollute global namspace with 'chai'
-            import "https://unpkg.com/chai-dom/chai-dom.js"   // and some dom assertions
-            import "https://unpkg.com/mocha/mocha.js";    // pollute global namspace with describe, it, etc
-            mocha.setup("bdd");                           // actual pollution is done here and now
-                                                          // close script to force executing setup()
-          </script>
+            import "mocha"                               // pollute global namspace with describe, it, etc
+            mocha.setup("bdd")                           // actual pollution is done here and now
+          </script>                                      <!-- close script to force executing setup() now -->
 
           <script type="module">
-            import {main} from "./static/app.js";         // mocha finds all tests when we import
-            mocha.checkLeaks();                           // check for global vars pollution 
-            mocha.run()                                   // runs all tests
-            main(document.getElementById("main"));        // runs the app
+            import "chai"                                // pollute global namespace with 'chai'
+            import "chai-dom"                            //   and chai-dom
+            import {main} from "./static/app.js"         // mocha finds all tests when we import
+            mocha.checkLeaks()                           // check for global vars pollution 
+            mocha.run()                                  // runs all tests
+            main(document.getElementById("main"))        // runs the app
           </script>
         </div>
       </sl-tab-panel>
