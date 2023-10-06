@@ -60,8 +60,32 @@ export class Editor extends LitElement {
     this.triples.push(this.new_triple)
     this.new_triple = {subject: "", predicate: "", object: ""}
     this.requestUpdate()
-    console.log(this.triples)
     // publish a create operation to the network
+  }
+
+  publish_triple() {
+    return fetch("/commit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(this.new_triple)
+    }).then(response => {
+      assert(response.ok)
+    })
+  }
+
+  fetch_triples() {
+    return fetch("/fetch")
+      .then(response => response.json())
+      .then(triples => {
+        this.triples.push(...triples)
+        this.requestUpdate()
+      })
+  }
+
+
+  set_root() {
+    // already set by input field
+    this.requestUpdate()
   }
 
   new_subject(subject) {
@@ -124,10 +148,6 @@ export class Editor extends LitElement {
           `
         })}
       `
-  }
-
-  set_root() {
-    this.requestUpdate()
   }
 
   render() {
@@ -293,6 +313,20 @@ describe("Editor", () => {
         expect(plus).attr('name', 'plus')
         // callbacks are tested above (on raw objects)
       })
+    })
+  })
+
+  describe("Send updates to server", () => {
+    const editor = new Editor();
+    editor.triples = []
+    editor.root = "urn:john"
+    editor.new_predicate({target: {value: "Name"}})
+    editor.new_object({target: {value: "John Happy"}})
+    it('sends update to server', async () => {
+      await editor.publish_triple()
+      await editor.fetch_triples()
+      expect(editor.triples.length).to.equal(1)
+      expect(editor.triples[0]).to.deep.equal({subject: "urn:john", predicate: "Name", object: "John Happy"})
     })
   })
 })
