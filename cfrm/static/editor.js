@@ -38,11 +38,10 @@ export class Editor extends LitElement {
 
   constructor() {
     super();
-    this.version = '0.0.1';
     this.triples = [
-      //{subject: "urn:john", predicate: "Name", object: "John Happy"}
-      //{subject: "urn:john", predicate: "Address", object: "urn:address-john"},
-      //{subject: "urn:address-john", predicate: "Street", object: "Happy Alley 16"}
+      {subject: "urn:john", predicate: "Name", object: "John Happy"},
+      {subject: "urn:john", predicate: "Address", object: "urn:address-john"},
+      {subject: "urn:address-john", predicate: "Street", object: "Happy Alley 16"}
     ]
     this.root = "urn:john"
     this.new_triple = {subject: "", predicate: "", object: ""}
@@ -61,6 +60,7 @@ export class Editor extends LitElement {
     this.triples.push(this.new_triple)
     this.new_triple = {subject: "", predicate: "", object: ""}
     this.requestUpdate()
+    console.log(this.triples)
     // publish a create operation to the network
   }
 
@@ -126,17 +126,28 @@ export class Editor extends LitElement {
       `
   }
 
+  set_root() {
+    this.requestUpdate()
+  }
+
   render() {
     const name_triple = this.triples.find(t => t.predicate == "Name" && t.subject == this.root)
     const title = name_triple ? name_triple.object : this.root
     return html`
       <sl-card class="card-header">
-        <div slot="header">
-          <p>${title} ${this.version}</p>
+        <div slot="header" style="display: flex; align-items: center">
+          ${!title
+            ? html`
+               <sl-input placeholder="<URI>" @input="${e => this.root = e.target.value}"></sl-input>
+               <sl-icon-button name="save" @click="${this.set_root}"></sl-button>
+             `
+            : html`<p>${title}</p>`
+          }
         </div>
-        <sl-tree>
-          ${this.render_one_object(this.root)}
-        </sl-tree>
+        ${title
+          ? html`<sl-tree> ${this.render_one_object(this.root)} </sl-tree>`
+          : nothing
+        }
       </sl-card>
     `
   }
@@ -161,17 +172,13 @@ async function with_host(tests) {
 describe("Editor", () => {
   describe("Raw Object", () => {
     const editor = new Editor();
+    editor.root = "urn:john"
     editor.triples = [
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ]
-    it('has version', () => {
-      expect(editor).not.to.be.null
-      expect(editor.version).to.equal('0.0.1')
-    })
     it('has triples', () => {
      const {strings, values} = editor.render()
-      expect(values[0]).to.equal("John Happy")
-      expect(values[1]).to.equal(editor.version)
+      expect(values[0].values[0]).to.equal("John Happy")
     })
     it('has root', () => {
       expect(editor.root).to.equal("urn:john")
@@ -179,6 +186,7 @@ describe("Editor", () => {
   })
   describe("Create And Delete Triple", () => {
     const editor = new Editor();
+    editor.root = "urn:john"
     editor.triples = [
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ]
@@ -211,6 +219,7 @@ describe("Editor", () => {
   describe("Raw Rendering", () => {
     it('renders + button', () => {
       const editor = new Editor();
+      editor.root = "urn:john"
       editor.triples = []
       const {strings, values: [subject, new_subject_fn]} = editor.render_one_object("urn:does-not-exist")
       expect(strings[1]).to.include('<sl-icon-button name="plus"')
@@ -221,6 +230,7 @@ describe("Editor", () => {
   })
   describe("Raw Rendering edit boxes", () => {
     let editor = new Editor();
+    editor.root = "urn:john"
     editor.triples = [
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ]
@@ -239,6 +249,7 @@ describe("Editor", () => {
   })
   describe("Raw Rendering of One Node", () => {
     const editor = new Editor();
+    editor.root = "urn:john"
     editor.triples = [
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ]
@@ -252,20 +263,35 @@ describe("Editor", () => {
       expect(editor.triples.length).to.equal(0)
     })
   })
-  // 1. empty editor + button
-  // 2. one triple
-  // 3. one triple with one object
- 
+
+
   describe("Rendering of DOM", () => {
+    it('renders empty editor', async () => {
+      await with_host(async host => {
+        const edit = document.createElement('editor-element')
+        edit.triples = []
+        edit.root = undefined
+        host.appendChild(edit)
+        await edit.updateComplete
+        const input = edit.shadowRoot.querySelector('sl-card div[slot=header] sl-input')
+        expect(input).not.to.be.null
+        const save = edit.shadowRoot.querySelector('sl-card div[slot=header] sl-icon-button[name="save"]')
+        expect(save).not.to.be.null
+        const tree = edit.shadowRoot.querySelector('sl-card sl-tree')
+        expect(tree).to.be.null
+      }) 
+    })
     it('renders plus button', async () => {
       await with_host(async host => {
         const edit = document.createElement('editor-element')
+        edit.root = "urn:john"
+        edit.triples = []
         host.appendChild(edit)
         await edit.updateComplete
-        const plus = edit.shadowRoot.querySelector('sl-icon-button')
+        const plus = edit.shadowRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button')
+        expect(plus).not.to.be.null
         expect(plus).attr('name', 'plus')
-        console.log(plus)
-        console.log(plus.onclick)
+        // callbacks are tested above (on raw objects)
       })
     })
   })
