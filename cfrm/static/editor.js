@@ -12,6 +12,9 @@ import 'shoelace/components/tree/tree.js'
 import 'shoelace/components/tree-item/tree-item.js'
 
 
+import {Store} from "./store.js"
+
+
 export class Editor extends LitElement {
 
   static styles = [
@@ -36,50 +39,37 @@ export class Editor extends LitElement {
       }
     `]
 
-  constructor() {
+  constructor(triples) {
     super();
-    this.triples = [
-      {subject: "urn:john", predicate: "Name", object: "John Happy"},
-      {subject: "urn:john", predicate: "Address", object: "urn:address-john"},
-      {subject: "urn:address-john", predicate: "Street", object: "Happy Alley 16"}
-    ]
-    this.root = "urn:john"
+    this.store = new Store(triples)
+    // probeer data
+    //this.store.publish({subject: "urn:john", predicate: "Name", object: "John Happy"})
+    //this.store.publish({subject: "urn:john", predicate: "Address", object: "urn:address-john"})
+    //this.store.publish({subject: "urn:address-john", predicate: "Street", object: "Happy Alley 16"})
+    //this.root = "urn:john"
     this.new_triple = {subject: "", predicate: "", object: ""}
   }
 
 
   delete(t) {
-    const i = this.triples.indexOf(t)
-    this.triples.splice(i, 1)
+    this.store.delete(t)
     this.requestUpdate()
-    // publish a delete operation to the network
   }
 
 
   commit_triple() {
-    this.triples.push(this.new_triple)
+    this.store.publish(this.new_triple)
     this.new_triple = {subject: "", predicate: "", object: ""}
     this.requestUpdate()
-    // publish a create operation to the network
   }
 
   publish_triple() {
-    return fetch("/commit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(this.new_triple)
-    }).then(response => {
-      assert(response.ok)
-    })
+    this.store.publish(this.new_triple)
   }
 
-  fetch_triples() {
-    return fetch("/fetch")
-      .then(response => response.json())
-      .then(triples => {
-        this.triples.push(...triples)
-        this.requestUpdate()
-      })
+  async fetch_triples() {
+    await this.store.fetch()
+    this.requestUpdate()
   }
 
 
@@ -115,7 +105,7 @@ export class Editor extends LitElement {
     
   render_one_object(subject) {
     // renders the subtree for one subject, recursively
-    const triples = this.triples.filter(t => t.subject == subject)
+    const triples = this.store.filter(t => t.subject == subject)
     if (triples.length == 0) 
       if (this.new_triple.subject == subject)
         return this.render_triple_edit()
@@ -151,7 +141,7 @@ export class Editor extends LitElement {
   }
 
   render() {
-    const name_triple = this.triples.find(t => t.predicate == "Name" && t.subject == this.root)
+    const name_triple = this.store.find(t => t.predicate == "Name" && t.subject == this.root)
     const title = name_triple ? name_triple.object : this.root
     return html`
       <sl-card class="card-header">
@@ -193,9 +183,9 @@ describe("Editor", () => {
   describe("Raw Object", () => {
     const editor = new Editor();
     editor.root = "urn:john"
-    editor.triples = [
+    editor.store = new Store([
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
-    ]
+    ])
     it('has triples', () => {
      const {strings, values} = editor.render()
       expect(values[0].values[0]).to.equal("John Happy")
@@ -207,9 +197,9 @@ describe("Editor", () => {
   describe("Create And Delete Triple", () => {
     const editor = new Editor();
     editor.root = "urn:john"
-    editor.triples = [
+    editor.store = new Store([
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
-    ]
+    ])
     it('has new iempty triple', () => {
       expect(editor.new_triple.subject).to.equal("")
       expect(editor.new_triple.predicate).to.equal("")
@@ -224,23 +214,23 @@ describe("Editor", () => {
       expect(editor.new_triple).to.deep.equal({subject: "urn:john", predicate: "Name", object: "John Happy"})
     })
     it('can commit new triple', () => {
-      expect(editor.triples.length).to.equal(1)
+      expect(editor.store.length).to.equal(1)
       editor.commit_triple()
-      expect(editor.triples.length).to.equal(2)
-      expect(editor.triples[1]).to.deep.equal({subject: "urn:john", predicate: "Name", object: "John Happy"})
+      expect(editor.store.length).to.equal(2)
+      expect(editor.store.contains({subject: "urn:john", predicate: "Name", object: "John Happy"})).to.be.true
       expect(editor.new_triple).to.deep.equal({subject: "", predicate: "", object: ""})
     })
     it('can delete triple', () => {
-      expect(editor.triples.length).to.equal(2)
-      editor.delete(editor.triples[1])
-      expect(editor.triples.length).to.equal(1)
+      expect(editor.store.length).to.equal(2)
+      editor.delete(editor.store[1])
+      expect(editor.store.length).to.equal(1)
     })
   })
   describe("Raw Rendering", () => {
     it('renders + button', () => {
       const editor = new Editor();
       editor.root = "urn:john"
-      editor.triples = []
+      editor.store = new Store([])
       const {strings, values: [subject, new_subject_fn]} = editor.render_one_object("urn:does-not-exist")
       expect(strings[1]).to.include('<sl-icon-button name="plus"')
       expect(subject).to.equal("urn:does-not-exist")
@@ -249,18 +239,17 @@ describe("Editor", () => {
     })
   })
   describe("Raw Rendering edit boxes", () => {
-    let editor = new Editor();
-    editor.root = "urn:john"
-    editor.triples = [
+    let editor = new Editor([
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
-    ]
+    ])
+    editor.root = "urn:john"
     editor.new_subject("urn:pete")
     it('renders callbacks for setting triple', () => {
       const {strings, values: [new_predicate, new_object, commit_triple]} = editor.render_triple_edit()
       new_predicate({target: {value: "Name"}})
       new_object({target: {value: "Peter"}})
       commit_triple()
-      expect(editor.triples[1]).to.deep.equal({subject: "urn:pete", predicate: "Name", object: "Peter"})
+      expect(editor.store.contains({subject: "urn:pete", predicate: "Name", object: "Peter"})).to.be.true
       expect(strings[0]).to.include("<sl-tree-item expanded>")
       expect(strings[1]).to.include("<sl-tree-item>")
       expect(strings[2]).to.include("<sl-icon-button name=\"save\"")
@@ -268,19 +257,18 @@ describe("Editor", () => {
     })
   })
   describe("Raw Rendering of One Node", () => {
-    const editor = new Editor();
+    const editor = new Editor([{subject: "urn:john", predicate: "Name", object: "John Happy"}])
+    console.log("=============", editor.store.triples)
     editor.root = "urn:john"
-    editor.triples = [
-      {subject: "urn:john", predicate: "Name", object: "John Happy"}
-    ]
     it('renders callbacks for deleting triple', () => {
       const {values} = editor.render_one_object("urn:john")
       const {values: [predicate, object_tree_item]} = values[0][0]
       expect(predicate).to.equal("Name")
       const {values: [john_happy, delete_callback]} = object_tree_item
       expect(john_happy).to.equal("John Happy")
+      expect(editor.store.length).to.equal(1)
       delete_callback()
-      expect(editor.triples.length).to.equal(0)
+      expect(editor.store.length).to.equal(0)
     })
   })
 
@@ -289,7 +277,7 @@ describe("Editor", () => {
     it('renders empty editor', async () => {
       await with_host(async host => {
         const edit = document.createElement('editor-element')
-        edit.triples = []
+        edit.store = []
         edit.root = undefined
         host.appendChild(edit)
         await edit.updateComplete
@@ -305,7 +293,7 @@ describe("Editor", () => {
       await with_host(async host => {
         const edit = document.createElement('editor-element')
         edit.root = "urn:john"
-        edit.triples = []
+        edit.store = []
         host.appendChild(edit)
         await edit.updateComplete
         const plus = edit.shadowRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button')
@@ -316,18 +304,18 @@ describe("Editor", () => {
     })
   })
 
-  describe("Send updates to server", () => {
-    const editor = new Editor();
-    editor.triples = []
+  describe("Send updates to Store", () => {
+    let triples = []
+    const editor = new Editor(triples);
     editor.root = "urn:john"
+    editor.new_subject("urn:john")
     editor.new_predicate({target: {value: "Name"}})
     editor.new_object({target: {value: "John Happy"}})
     it('sends update to server', async () => {
       await editor.publish_triple()
-      await editor.fetch_triples()
-      expect(editor.triples.length).to.equal(1)
-      expect(editor.triples[0]).to.deep.equal({subject: "urn:john", predicate: "Name", object: "John Happy"})
+      expect(triples).to.deep.equal([{subject: "urn:john", predicate: "Name", object: "John Happy"}])
     })
+    //  await editor.fetch_triples()
   })
 })
 
