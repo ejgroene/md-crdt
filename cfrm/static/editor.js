@@ -19,8 +19,8 @@ export class Editor extends LitElement {
 
   static styles = [
     css`
-      sl-button {
-        padding-left: 0.5em;
+      .editplus::part(expand-button) {
+        display: none;
       }
       sl-card::part(header) {
         font-family: var(--sl-font-sans);
@@ -103,24 +103,38 @@ export class Editor extends LitElement {
         </sl-tree-item>
       </sl-tree-item>`
   }
-    
-  render_one_object(subject) {
-    // renders the subtree for one subject, recursively
-    const triples = this.store.filter(t => t.subject == subject)
-    if (triples.length == 0) 
+   
+
+
+  render_edit_or_plus_button(subject) {
+      // ...but there is a new triple being edited
       if (this.new_triple.subject == subject)
         return this.render_triple_edit()
+
+      // ...show URI and '+' button
       else
         return html`
-          <sl-tree-item>
-            &lt;${subject}&gt;
+          <sl-tree-item class="editplus">
             <sl-icon-button name="plus" @click="${e => this.new_subject(subject)}"></sl-icon-button>
           </sl-tree-item>
         `
+  }
+
+
+  render_one_object(subject) {
+    // renders the subtree for one subject, recursively
+
+    const triples = this.store.filter(t => t.subject == subject)
+
+    // no properties for this subject
+    if (triples.length == 0) 
+      return this.render_edit_or_plus_button(subject)
+
+    // there are properties for this subject
     else
-      return html`
-        ${triples.map((t, i, all) => {
-          return html`
+      return [html`
+        ${triples.map((t, i, all) =>
+          html`
             <sl-tree-item expanded>
               ${t.predicate}
               ${t.object.startsWith("urn:")
@@ -129,16 +143,11 @@ export class Editor extends LitElement {
                          <sl-icon-button name="trash" @click="${e => this.delete(t)}"></sl-icon-button>
                        </sl-tree-item>`
               }
-            ${i == all.length - 1
-              ? t.subject == this.new_triple.subject
-                ? this.render_triple_edit()
-                : html`<sl-icon-button name="plus" @click="${e => this.new_subject(subject)}"></sl-icon-button>`
-              : nothing
-            }
-            </sl-tree-item>
-          `
-        })}
-      `
+            </sl-tree-item>`
+        )}`
+        ,
+        this.render_edit_or_plus_button(subject)
+        ]
   }
 
   render() {
@@ -168,6 +177,49 @@ export class Editor extends LitElement {
 customElements.define('editor-element', Editor);
 
 
+function find_value(template, predicate_or_pattern) {
+  const predicate = 
+    predicate_or_pattern instanceof RegExp
+      ? v => predicate_or_pattern.test(v)
+      : predicate_or_pattern
+  for (const v of template.values)
+    if (predicate(v))
+      return v
+    else
+      if (v.values)
+        return find_value(v, predicate)
+}
+
+
+describe("Find Values Utility", () => {
+  it('finds values', () => {
+    expect(find_value(html`<p></p>`, v => v == "a")).to.be.undefined
+    expect(find_value(html`<p>${"a"}</p>`, v => v == "a")).to.equal("a")
+    expect(find_value(html`<p>${"a"}</p><a>${"b"}</a>`, v => v == "a")).to.equal("a")
+    expect(find_value(html`<p>${"a"}</p><a>${"b"}</a>`, v => v == "b")).to.equal("b")
+    expect(find_value(html`<p>${"a"}</p><a>${"b"}</a>`, v => v == "c")).to.be.undefined
+  })
+  it('finds values in nested templates', () => {
+    expect(find_value(html`<p>${html`<p>${"a"}</p>`}</p>`, v => v == "a")).to.equal("a")
+    expect(find_value(html`<p>${html`<p>${"a"}</p>`}</p>`, v => v == "b")).to.be.undefined
+  })
+  it('finds attributes', () => {
+    expect(find_value(html`<p a=${"aap"}></p>`, v => v == "aap")).to.equal("aap")
+    expect(find_value(html`<p ?a=${true}></p>`, v => v == true)).to.equal(true)
+  })
+  it('finds properties', () => {
+    expect(find_value(html`<p .a=${"aap"}></p>`, v => v == "aap")).to.equal("aap")
+  })
+  it('finds event handlers', () => {
+    expect(find_value(html`<p @a=${e => e}></p>`, v => v.toString() == "e => e")).to.be.a('function')
+  })
+  it('uses string as pattern', () => {
+    expect(find_value(html`<p>${e => e}</p>`, /e => e/)).to.be.a('function')
+  })
+
+})
+
+
 async function with_host(tests) {
     // test helper; components need to be attached to the DOM to render
     const host = document.createElement('div')
@@ -189,7 +241,7 @@ describe("Editor", () => {
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ])
     it('has triples', () => {
-     const {strings, values} = editor.render()
+      const {strings, values} = editor.render()
       expect(values[0].values[0]).to.equal("John Happy")
     })
     it('has root', () => {
@@ -233,11 +285,7 @@ describe("Editor", () => {
   describe("Raw Rendering", () => {
     it('renders + button', () => {
       const editor = new Editor();
-      editor.root = "urn:john"
-      editor.store = new Store([])
-      const {strings, values: [subject, new_subject_fn]} = editor.render_one_object("urn:does-not-exist")
-      expect(strings[1]).to.include('<sl-icon-button name="plus"')
-      expect(subject).to.equal("urn:does-not-exist")
+      const {strings, values: [new_subject_fn]} = editor.render_one_object("urn:does-not-exist")
       new_subject_fn()
       expect(editor.new_triple.subject).to.equal("urn:does-not-exist")
     })
@@ -266,8 +314,7 @@ describe("Editor", () => {
     const editor = new Editor([{subject: "urn:john", predicate: "Name", object: "John Happy"}])
     editor.root = "urn:john"
     it('renders callbacks for deleting triple', () => {
-      const {values} = editor.render_one_object("urn:john")
-      const {values: [predicate, object_tree_item]} = values[0][0]
+      const [{values: [[{values: [predicate, object_tree_item]}]]}] = editor.render_one_object("urn:john")
       expect(predicate).to.equal("Name")
       const {values: [john_happy, delete_callback]} = object_tree_item
       expect(john_happy).to.equal("John Happy")
@@ -290,7 +337,6 @@ describe("Editor", () => {
         expect(strings).to.deep.equal(["<p>", "</p>"])
         expect(values).to.deep.equal(["disabled"])
         let h = html`<p ${{a: "A"}.a ? "disabled" : "0"}></p>`
-        console.log(h)
         const {strings: s2, values: v2} = html`<p ${{a: "A"}.a ? "disabled" : "0"}></p>`
         expect(s2).to.deep.equal(["<p ", "></p>"])
         expect(v2).to.deep.equal(["disabled"])
@@ -319,6 +365,7 @@ describe("Editor", () => {
       it('saves root', async () => {
         edit.set_root("urn:john")
         edit.save_root()
+        await edit.updateComplete
         const plus = edit.shadowRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button[name="plus"]')
         expect(plus).not.to.be.null
       })
