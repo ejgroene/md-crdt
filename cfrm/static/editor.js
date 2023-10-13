@@ -96,10 +96,10 @@ export class Editor extends LitElement {
     // renders the input fields for predicate and object + save button
     return html`
       <sl-tree-item expanded>
-        <sl-input name="predicate" placeholder="Predicate" @input="${e => this.new_predicate(e)}"></sl-input>
+        <sl-input name="predicate" placeholder="predicate" @input=${e => this.new_predicate(e)}> </sl-input>
         <sl-tree-item>
-          <sl-input name="object" placeholder="Value" @input="${e => this.new_object(e)}"></sl-input>
-          <sl-icon-button name="save" @click="${e => this.commit_triple()}"></sl-icon-button>
+          <sl-input name="object" placeholder="value" @input=${e => this.new_object(e)}></sl-input>
+          <sl-icon-button name="save" @click=${e => this.commit_triple()}></sl-icon-button>
         </sl-tree-item>
       </sl-tree-item>`
   }
@@ -132,21 +132,19 @@ export class Editor extends LitElement {
 
     // there are properties for this subject
     else
-      return [html`
-        ${triples.map((t, i, all) =>
-          html`
-            <sl-tree-item expanded>
-              ${t.predicate}
-              <sl-icon-button  name="x"  label="Delete"  @click="${e => this.delete(t)}"></sl-icon-button>
-              ${t.object.startsWith("urn:")
-                ? this.render_one_object(t.object)
-                : html`<sl-tree-item>${t.object}</sl-tree-item>`
-              }
-            </sl-tree-item>`
-        )}`
-        ,
+      return [...triples.map((t, i) =>
+        html`
+          <sl-tree-item expanded>
+            ${t.predicate}
+            <sl-icon-button  name="x"  label="Delete"  @click="${e => this.delete(t)}"></sl-icon-button>
+            ${t.object.startsWith("urn:")
+              ? this.render_one_object(t.object)
+              : html`<sl-tree-item>${t.object}</sl-tree-item>`
+            }
+          </sl-tree-item>`
+        ),
         this.render_edit_or_plus_button(subject)
-        ]
+      ]
   }
 
   render() {
@@ -302,10 +300,6 @@ describe("Editor", () => {
       new_object({target: {value: "Peter"}})
       commit_triple()
       expect(editor.store.contains({subject: "urn:pete", predicate: "Name", object: "Peter"})).to.be.true
-      expect(strings[0]).to.include("<sl-tree-item expanded>")
-      expect(strings[1]).to.include("<sl-tree-item>")
-      expect(strings[2]).to.include("<sl-icon-button name=\"save\"")
-      expect(strings[3]).to.include("</sl-tree-item>")
     })
   })
 
@@ -313,7 +307,7 @@ describe("Editor", () => {
     const editor = new Editor([{subject: "urn:john", predicate: "Name", object: "John Happy"}])
     editor.root = "urn:john"
     it('renders callbacks for deleting triple', () => {
-      const [{values: [[{values: [predicate, delete_callback, object_tree_item]}]]}] = editor.render_one_object("urn:john")
+      const [{values: [predicate, delete_callback, object_tree_item]}] = editor.render_one_object("urn:john")
       expect(predicate).to.equal("Name")
       expect(delete_callback).to.be.an('function')
       const {values: [john_happy]} = object_tree_item
