@@ -137,11 +137,10 @@ export class Editor extends LitElement {
           html`
             <sl-tree-item expanded>
               ${t.predicate}
+              <sl-icon-button  name="x"  label="Delete"  @click="${e => this.delete(t)}"></sl-icon-button>
               ${t.object.startsWith("urn:")
                 ? this.render_one_object(t.object)
-                : html`<sl-tree-item>${t.object}
-                         <sl-icon-button name="trash" @click="${e => this.delete(t)}"></sl-icon-button>
-                       </sl-tree-item>`
+                : html`<sl-tree-item>${t.object}</sl-tree-item>`
               }
             </sl-tree-item>`
         )}`
@@ -314,9 +313,10 @@ describe("Editor", () => {
     const editor = new Editor([{subject: "urn:john", predicate: "Name", object: "John Happy"}])
     editor.root = "urn:john"
     it('renders callbacks for deleting triple', () => {
-      const [{values: [[{values: [predicate, object_tree_item]}]]}] = editor.render_one_object("urn:john")
+      const [{values: [[{values: [predicate, delete_callback, object_tree_item]}]]}] = editor.render_one_object("urn:john")
       expect(predicate).to.equal("Name")
-      const {values: [john_happy, delete_callback]} = object_tree_item
+      expect(delete_callback).to.be.an('function')
+      const {values: [john_happy]} = object_tree_item
       expect(john_happy).to.equal("John Happy")
       expect(editor.store.length).to.equal(1)
       delete_callback()
@@ -329,7 +329,8 @@ describe("Editor", () => {
     await with_host(async host => {
       const edit = document.createElement('editor-element')
       host.appendChild(edit)
-      it("does not understand", () => {
+
+      it("is not understood by Erik", () => {
         expect({}.a ? "1" : "0").to.equal("0")
         expect({a: ""}.a ? "1" : "0").to.equal("0")
         expect({a: "A"}.a ? "disabled" : "0").to.equal("disabled")
@@ -380,6 +381,19 @@ describe("Editor", () => {
           expect(plus).not.to.be.null
           expect(plus).attr('name', 'plus')
           // callbacks are tested above (on raw objects)
+        })
+      })
+
+      it('renders delete button', async () => {
+        await with_host(async host => {
+          const edit = document.createElement('editor-element')
+          edit.root = "urn:john"
+          edit.store = new Store([ {subject: "urn:john", predicate: "address", object: "urn:address1"} ])
+          host.appendChild(edit)
+          await edit.updateComplete
+          const trash = edit.shadowRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button[name="x"]')
+          expect(trash).not.to.be.null
+          expect(trash).attr('name', 'x')
         })
       })
     })
