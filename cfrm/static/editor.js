@@ -1,6 +1,7 @@
 
 const {assert, expect, should} = chai       // chai is globally imported earlier
 import {LitElement, html, css, nothing} from "lit"
+import {describe, it} from "selftest"
 
 
 // import explicitly, because the autoloader does not work in this context
@@ -96,7 +97,12 @@ export class Editor extends LitElement {
     // renders the input fields for predicate and object + save button
     return html`
       <sl-tree-item expanded>
-        <sl-input name="predicate" placeholder="predicate" @input=${e => this.new_predicate(e)}> </sl-input>
+        <sl-input
+          name="predicate"
+          placeholder="predicate"
+          @sl-input=${e => this.new_predicate(e)}
+          @sl-change=${e => this.renderRoot.querySelector('sl-input[name="object"]').focus()}>
+        </sl-input>
         <sl-tree-item>
           <sl-input name="object" placeholder="value" @input=${e => this.new_object(e)}></sl-input>
           <sl-icon-button name="save" @click=${e => this.commit_triple()}></sl-icon-button>
@@ -188,29 +194,29 @@ function find_value(template, predicate_or_pattern) {
 }
 
 
-describe("Find Values Utility", () => {
-  it('finds values', () => {
+await describe("Find Values Utility", async () => {
+  await it('finds values', () => {
     expect(find_value(html`<p></p>`, v => v == "a")).to.be.undefined
     expect(find_value(html`<p>${"a"}</p>`, v => v == "a")).to.equal("a")
     expect(find_value(html`<p>${"a"}</p><a>${"b"}</a>`, v => v == "a")).to.equal("a")
     expect(find_value(html`<p>${"a"}</p><a>${"b"}</a>`, v => v == "b")).to.equal("b")
     expect(find_value(html`<p>${"a"}</p><a>${"b"}</a>`, v => v == "c")).to.be.undefined
   })
-  it('finds values in nested templates', () => {
+  await it('finds values in nested templates', () => {
     expect(find_value(html`<p>${html`<p>${"a"}</p>`}</p>`, v => v == "a")).to.equal("a")
     expect(find_value(html`<p>${html`<p>${"a"}</p>`}</p>`, v => v == "b")).to.be.undefined
   })
-  it('finds attributes', () => {
+  await it('finds attributes', () => {
     expect(find_value(html`<p a=${"aap"}></p>`, v => v == "aap")).to.equal("aap")
     expect(find_value(html`<p ?a=${true}></p>`, v => v == true)).to.equal(true)
   })
-  it('finds properties', () => {
+  await it('finds properties', () => {
     expect(find_value(html`<p .a=${"aap"}></p>`, v => v == "aap")).to.equal("aap")
   })
-  it('finds event handlers', () => {
+  await it('finds event handlers', () => {
     expect(find_value(html`<p @a=${e => e}></p>`, v => v.toString() == "e => e")).to.be.a('function')
   })
-  it('uses string as pattern', () => {
+  await it('uses string as pattern', () => {
     expect(find_value(html`<p>${e => e}</p>`, /e => e/)).to.be.a('function')
   })
 
@@ -223,41 +229,44 @@ async function with_host(tests) {
     document.body.appendChild(host)
     try {
       await tests(host)
+    //} catch (e) {
+    //  console.log("caught", e)
+    //  throw e
     } finally {
       document.body.removeChild(host)
     }
 }
 
 
-describe("Editor", () => {
+await describe("Editor", async () => {
 
-  describe("Raw Object", () => {
+  await describe("Raw Object", async () => {
     const editor = new Editor();
     editor.root = "urn:john"
     editor.store = new Store([
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ])
-    it('has triples', () => {
+    await it('has triples', async () => {
       const {strings, values} = editor.render()
       expect(values[0].values[0]).to.equal("John Happy")
     })
-    it('has root', () => {
+    await it('has root', async () => {
       expect(editor.root).to.equal("urn:john")
     })
   })
 
-  describe("Create And Delete Triple", () => {
+  await describe("Create And Delete Triple", async () => {
     const editor = new Editor();
     editor.root = "urn:john"
     editor.store = new Store([
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ])
-    it('has new iempty triple', () => {
+    await it('has new iempty triple', async () => {
       expect(editor.new_triple.subject).to.equal("")
       expect(editor.new_triple.predicate).to.equal("")
       expect(editor.new_triple.object).to.equal("")
     })
-    it('can set new triple', () => {
+    await it('can set new triple', async () => {
       editor.new_subject("urn:john")
       expect(editor.new_triple).to.deep.equal({subject: "urn:john", predicate: "", object: ""})
       editor.new_predicate({target: {value: "Name"}})
@@ -265,22 +274,22 @@ describe("Editor", () => {
       editor.new_object({target: {value: "John Happy"}})
       expect(editor.new_triple).to.deep.equal({subject: "urn:john", predicate: "Name", object: "John Happy"})
     })
-    it('can commit new triple', () => {
+    await it('can commit new triple', async () => {
       expect(editor.store.length).to.equal(1)
       editor.commit_triple()
       expect(editor.store.length).to.equal(2)
       expect(editor.store.contains({subject: "urn:john", predicate: "Name", object: "John Happy"})).to.be.true
       expect(editor.new_triple).to.deep.equal({subject: "", predicate: "", object: ""})
     })
-    it('can delete triple', () => {
+    await it('can delete triple', async () => {
       expect(editor.store.length).to.equal(2)
       editor.delete(editor.store[1])
       expect(editor.store.length).to.equal(1)
     })
   })
 
-  describe("Raw Rendering", () => {
-    it('renders + button', () => {
+  await describe("Raw Rendering", async () => {
+    await it('renders + button', async () => {
       const editor = new Editor();
       const {strings, values: [new_subject_fn]} = editor.render_one_object("urn:does-not-exist")
       new_subject_fn()
@@ -288,25 +297,27 @@ describe("Editor", () => {
     })
   })
 
-  describe("Raw Rendering edit boxes", () => {
+  await describe("Raw Rendering edit boxes", async () => {
     let editor = new Editor([
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ])
     editor.root = "urn:john"
     editor.new_subject("urn:pete")
-    it('renders callbacks for setting triple', () => {
-      const {strings, values: [new_predicate, new_object, commit_triple]} = editor.render_triple_edit()
+    await it('renders callbacks for setting triple', async () => {
+      const {strings, values: [new_predicate, enter, new_object, commit_triple]} = editor.render_triple_edit()
       new_predicate({target: {value: "Name"}})
+      expect(enter).to.be.an('function')
+      // we test move focus on enter later, as there is no DOM in this test
       new_object({target: {value: "Peter"}})
       commit_triple()
       expect(editor.store.contains({subject: "urn:pete", predicate: "Name", object: "Peter"})).to.be.true
     })
   })
 
-  describe("Raw Rendering of One Node", () => {
+  await describe("Raw Rendering of One Node", async () => {
     const editor = new Editor([{subject: "urn:john", predicate: "Name", object: "John Happy"}])
     editor.root = "urn:john"
-    it('renders callbacks for deleting triple', () => {
+    await it('renders callbacks for deleting triple', async () => {
       const [{values: [predicate, delete_callback, object_tree_item]}] = editor.render_one_object("urn:john")
       expect(predicate).to.equal("Name")
       expect(delete_callback).to.be.an('function')
@@ -319,12 +330,10 @@ describe("Editor", () => {
   })
 
 
-  describe("Rendering of DOM", async () => {
+  await describe("Rendering of DOM", async () => {
     await with_host(async host => {
-      const edit = document.createElement('editor-element')
-      host.appendChild(edit)
 
-      it("is not understood by Erik", () => {
+      await it("is not understood by Erik", async () => {
         expect({}.a ? "1" : "0").to.equal("0")
         expect({a: ""}.a ? "1" : "0").to.equal("0")
         expect({a: "A"}.a ? "disabled" : "0").to.equal("disabled")
@@ -337,55 +346,81 @@ describe("Editor", () => {
         expect(v2).to.deep.equal(["disabled"])
       })
 
-      it('renders empty editor', async () => {
-          await edit.updateComplete
-          const input = edit.shadowRoot.querySelector('sl-card div[slot=header] sl-input')
-          expect(input).not.to.be.null
-          expect(input).attr('placeholder', '<enter URI>')
-          const save = edit.shadowRoot.querySelector('sl-card div[slot=header] sl-icon-button[name="save"]')
-          expect(save).not.to.be.null
-          expect(save).attr('disabled') 
-          const tree = edit.shadowRoot.querySelector('sl-card sl-tree')
-          expect(tree).to.be.null
-        }) 
+      await it("is also not understood by Erik", async () => {
+        const e0 = new Editor()
+        const e1 = document.createElement("editor-element")
+        //const p0 = Object.getOwnPropertyNames(e0)
+        //expect(p0).to.deep.equal(Object.getOwnPropertyNames(e1))
+        //expect(e0).to.include.keys("store", "new_triple", "hasUpdated", "renderOptions")
+        //expect(e1.renderRoot).to.be.null
+        console.log("creating comopnent")
+        host.appendChild(e1)
+        e1.requestUpdate()
+        try {
+          await e1.updateComplete
+        } catch (e) {
+          console.log("caught", e)
+        }
+        //expect(e1.renderRoot).not.to.be.null
+      })
 
-      it('activates save button', async () => {
+      console.log("when TF does this RUN???")
+      const edit = document.createElement('editor-element')
+      host.appendChild(edit)
+      await it('renders empty editor', async () => {
+        await edit.updateComplete
+        const input = edit.renderRoot.querySelector('sl-card div[slot=header] sl-input')
+        expect(input).not.to.be.null
+        expect(input).attr('placeholder', '<enter URI>')
+        const save = edit.renderRoot.querySelector('sl-card div[slot=header] sl-icon-button[name="save"]')
+        expect(save).not.to.be.null
+        expect(save).attr('disabled') 
+        const tree = edit.renderRoot.querySelector('sl-card sl-tree')
+        expect(tree).to.be.null
+      }) 
+
+      await it('activates save button', async () => {
         edit.set_root("urn:j")
         await edit.updateComplete
-        const save = edit.shadowRoot.querySelector('sl-card div[slot=header] sl-icon-button[name="save"]')
+        const save = edit.renderRoot.querySelector('sl-card div[slot=header] sl-icon-button[name="save"]')
         expect(save).not.to.be.null
         expect(save).not.attr('disabled')
       })
 
-      it('saves root', async () => {
+      await it('moves focus to object on enter', async () => {
+        enter.bind(editor)()
+        expect(editor.querySelector("sl-input[name=object]")).to.be.focussed // more for DOM testing below
+      })
+
+      await it('saves root', async () => {
         edit.set_root("urn:john")
         edit.save_root()
         await edit.updateComplete
-        const plus = edit.shadowRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button[name="plus"]')
+        const plus = edit.renderRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button[name="plus"]')
         expect(plus).not.to.be.null
       })
 
-      it('renders plus button', async () => {
+      await it('renders plus button', async () => {
         await with_host(async host => {
           const edit = document.createElement('editor-element')
           edit.root = "urn:john"
           host.appendChild(edit)
           await edit.updateComplete
-          const plus = edit.shadowRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button')
+          const plus = edit.renderRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button')
           expect(plus).not.to.be.null
           expect(plus).attr('name', 'plus')
           // callbacks are tested above (on raw objects)
         })
       })
 
-      it('renders delete button', async () => {
+      await it('renders delete button', async () => {
         await with_host(async host => {
           const edit = document.createElement('editor-element')
           edit.root = "urn:john"
           edit.store = new Store([ {subject: "urn:john", predicate: "address", object: "urn:address1"} ])
           host.appendChild(edit)
           await edit.updateComplete
-          const trash = edit.shadowRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button[name="x"]')
+          const trash = edit.renderRoot.querySelector('sl-card sl-tree sl-tree-item sl-icon-button[name="x"]')
           expect(trash).not.to.be.null
           expect(trash).attr('name', 'x')
         })
@@ -394,14 +429,14 @@ describe("Editor", () => {
   })
 
 
-  describe("Send updates to Store", () => {
+  await describe("Send updates to Store", async () => {
     let triples = []
     const editor = new Editor(triples);
     editor.root = "urn:john"
     editor.new_subject("urn:john")
     editor.new_predicate({target: {value: "Name"}})
     editor.new_object({target: {value: "John Happy"}})
-    it('sends update to server', async () => {
+    await it('sends update to server', async () => {
       await editor.publish_triple()
       expect(triples).to.deep.equal([{subject: "urn:john", predicate: "Name", object: "John Happy"}])
     })
