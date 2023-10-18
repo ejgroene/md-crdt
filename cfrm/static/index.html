@@ -6,6 +6,8 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0">
 
+    <link rel="icon" href="data:;base64,iVBORw0KGgo="> <!-- silence favicon error -->
+
     <link
       rel="stylesheet"
       href="https://unpkg.com/mocha/mocha.css">
@@ -56,8 +58,9 @@
       <sl-tab-panel name="main">
         <div id="main"></div>
           <script type="module">
-            import {main} from "./static/app.js"         // mocha finds all tests when we import
-            main(document.getElementById("main"))        // runs the app
+            import "./static/selftest2.js" 
+            //import {main} from "./static/app.js"         // mocha finds all tests when we import
+            //main(document.getElementById("main"))        // runs the app
           </script>
         </div>
       </sl-tab-panel>
