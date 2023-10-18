@@ -1,6 +1,7 @@
 
 
 const {assert, expect, should} = chai
+import {describe, it} from "selftest"
 
 
 export class Store {

@@ -1,5 +1,6 @@
 
 const {assert, expect, should} = chai
+import {describe, it} from "selftest"
 
 
 import { Editor } from "./editor.js"

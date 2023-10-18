@@ -1,5 +1,6 @@
 
 const {assert, expect, should} = chai       // chai is globally imported earlier
+import "chai-dom"
 import {LitElement, html, css, nothing} from "lit"
 import {describe, it} from "selftest"
 
@@ -11,7 +12,6 @@ import 'shoelace/components/icon/icon.js'
 import 'shoelace/components/input/input.js'
 import 'shoelace/components/tree/tree.js'
 import 'shoelace/components/tree-item/tree-item.js'
-
 
 import {Store} from "./store.js"
 
@@ -101,10 +101,10 @@ export class Editor extends LitElement {
           name="predicate"
           placeholder="predicate"
           @sl-input=${e => this.new_predicate(e)}
-          @sl-change=${e => this.renderRoot.querySelector('sl-input[name="object"]').focus()}>
+          @sl-change=${e => this.renderRoot.querySelector('sl-input[name=object]').focus()}>
         </sl-input>
         <sl-tree-item>
-          <sl-input name="object" placeholder="value" @input=${e => this.new_object(e)}></sl-input>
+          <sl-input name="object" placeholder="value" @sl-input=${e => this.new_object(e)}></sl-input>
           <sl-icon-button name="save" @click=${e => this.commit_triple()}></sl-icon-button>
         </sl-tree-item>
       </sl-tree-item>`
@@ -332,6 +332,8 @@ await describe("Editor", async () => {
 
   await describe("Rendering of DOM", async () => {
     await with_host(async host => {
+      const edit = document.createElement('editor-element')
+      host.appendChild(edit)
 
       await it("is not understood by Erik", async () => {
         expect({}.a ? "1" : "0").to.equal("0")
@@ -349,47 +351,56 @@ await describe("Editor", async () => {
       await it("is also not understood by Erik", async () => {
         const e0 = new Editor()
         const e1 = document.createElement("editor-element")
-        //const p0 = Object.getOwnPropertyNames(e0)
-        //expect(p0).to.deep.equal(Object.getOwnPropertyNames(e1))
-        //expect(e0).to.include.keys("store", "new_triple", "hasUpdated", "renderOptions")
-        //expect(e1.renderRoot).to.be.null
-        console.log("creating comopnent")
+        const p0 = Object.getOwnPropertyNames(e0)
+        expect(p0).to.deep.equal(Object.getOwnPropertyNames(e1))
+        expect(e0).to.include.keys("store", "new_triple", "hasUpdated", "renderOptions")
+        expect(e1.renderRoot).to.be.undefined
         host.appendChild(e1)
         e1.requestUpdate()
-        try {
-          await e1.updateComplete
-        } catch (e) {
-          console.log("caught", e)
-        }
-        //expect(e1.renderRoot).not.to.be.null
+        await e1.updateComplete
+        expect(e1.renderRoot).not.to.be.undefined
       })
 
-      console.log("when TF does this RUN???")
-      const edit = document.createElement('editor-element')
-      host.appendChild(edit)
       await it('renders empty editor', async () => {
         await edit.updateComplete
         const input = edit.renderRoot.querySelector('sl-card div[slot=header] sl-input')
-        expect(input).not.to.be.null
         expect(input).attr('placeholder', '<enter URI>')
         const save = edit.renderRoot.querySelector('sl-card div[slot=header] sl-icon-button[name="save"]')
-        expect(save).not.to.be.null
         expect(save).attr('disabled') 
         const tree = edit.renderRoot.querySelector('sl-card sl-tree')
         expect(tree).to.be.null
       }) 
 
-      await it('activates save button', async () => {
+      await it('edit and save main URI', async () => {
         edit.set_root("urn:j")
         await edit.updateComplete
-        const save = edit.renderRoot.querySelector('sl-card div[slot=header] sl-icon-button[name="save"]')
-        expect(save).not.to.be.null
+        const save = edit.renderRoot.querySelector('sl-icon-button[name="save"]')
         expect(save).not.attr('disabled')
+        expect(edit.root).to.be.undefined
+        save.click()
+        expect(edit.root).to.equal("urn:j")
+      })
+
+      await it("show input fields when '+' pressed", async () => {
+        const plus = edit.renderRoot.querySelector('sl-icon-button[name="plus"]')
+        plus.click()
+        await edit.updateComplete
+        const predic_inp = edit.renderRoot.querySelector('sl-input[name="predicate"]')
+        const object_inp = edit.renderRoot.querySelector('sl-input[name="object"]')
+        expect(predic_inp).not.to.be.null
+        expect(object_inp).not.to.be.null
+        //expect(pred_input).to.have.property('hasFocus', true) // way to difficult
       })
 
       await it('moves focus to object on enter', async () => {
-        enter.bind(editor)()
-        expect(editor.querySelector("sl-input[name=object]")).to.be.focussed // more for DOM testing below
+        const pred_input = edit.renderRoot.querySelector('sl-input[name=predicate]')
+        const obj_input = edit.renderRoot.querySelector('sl-input[name=object]')
+        expect(pred_input).to.have.property('hasFocus', false)
+        const e = new CustomEvent('sl-change', {bubbles: true, composed: true})
+        pred_input.dispatchEvent(e)
+        edit.requestUpdate()
+        await edit.updateComplete
+        expect(obj_input).to.have.property('hasFocus', true)
       })
 
       await it('saves root', async () => {
