@@ -1,6 +1,8 @@
 
 const {assert, expect, should} = chai
-import {describe, it} from "selftest"
+import {Tester} from "selftest"
+
+const test = new Tester("app")
 
 
 import { Editor } from "./editor.js"
@@ -25,7 +27,7 @@ export function load_test_data(root) {
 
 
 
-describe("App Test", () => {
+test("App Test", () => {
   it('Just a Placeholder', () => {
     assert("my first test")
   })

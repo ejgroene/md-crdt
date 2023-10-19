@@ -1,7 +1,9 @@
 
 
 const {assert, expect, should} = chai
-import {describe, it} from "selftest"
+import {Tester} from "selftest"
+
+const test = Tester("store")
 
 
 export class Store {
@@ -56,39 +58,39 @@ export class Store {
 }
 
 
-describe('Store', () => {
-  it('should separate storages', () => {
+test('Store', test => {
+  test('should separate storages', test => {
     const store1 = new Store()
     const store2 = new Store()
     store1.publish({subject: "a", predicate: "b", object: "c"})
     expect(store1.length).to.equal(1)
     expect(store2.length).to.equal(0)
   })
-  it('should separate storages', () => {
+  test('should separate storages', test => {
     const store1 = new Store([{subject: "a", predicate: "b", object: "c"}])
     const store2 = new Store([])
     expect(store1.length).to.equal(1)
     expect(store2.length).to.equal(0)
   })
-  it('should be a class', () => {
+  test('should be a class', test => {
     expect(Store).to.be.a('function')
   })
-  describe("Store with Test Data", () => {
+  test("Store with Test Data", test => {
     const store = new Store([{subject: "a", predicate: "b", object: "c"}])
-    it('should have a length of 1', () => {
+    test('should have a length of 1', test => {
       expect(store.length).to.equal(1)
     })
-    it('should contain the triple {subject: "a", predicate: "b", object: "c"}', () => {
+    test('should contain the triple {subject: "a", predicate: "b", object: "c"}', test => {
       expect(store.contains({subject: "a", predicate: "b", object: "c"})).to.be.true
     })
-    it('should delete', () => {
+    test('should delete', test => {
       store.delete({subject: "a", predicate: "b", object: "c"})
       expect(store.length).to.equal(0)
     })
   })
-  describe("Send updates to server", () => {
+  test("Send updates to server", test => {
     const editor = new Store();
-    it('sends update to server', async () => {
+    test('sends update to server', async test => {
     })
   })
 })

@@ -10,17 +10,6 @@
 
     <link
       rel="stylesheet"
-      href="https://unpkg.com/mocha/mocha.css">
-
-    <style>
-      /* mocha.css is not very good, so we fix it here */
-      #mocha-stats {
-        position: unset;
-      }
-    </style>
-
-    <link
-      rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.10.0/cdn/themes/light.css">
 
     <script type="importmap">
@@ -28,7 +17,6 @@
         "imports": {
           "chai":      "https://unpkg.com/chai/chai.js",
           "chai-dom":  "https://unpkg.com/chai-dom/chai-dom.js",
-          "mocha":     "https://unpkg.com/mocha/mocha.js",
           "shoelace/": "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.10.0/cdn/",
           "lit":       "https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js",
           "selftest":  "./static/selftest.js"
@@ -58,9 +46,8 @@
       <sl-tab-panel name="main">
         <div id="main"></div>
           <script type="module">
-            import "./static/selftest2.js" 
-            //import {main} from "./static/app.js"         // mocha finds all tests when we import
-            //main(document.getElementById("main"))        // runs the app
+            import {main} from "./static/app.js"         // selftest runs all tests when we import
+            main(document.getElementById("main"))        // runs the app
           </script>
         </div>
       </sl-tab-panel>

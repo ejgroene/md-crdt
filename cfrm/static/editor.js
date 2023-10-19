@@ -2,7 +2,9 @@
 const {assert, expect, should} = chai       // chai is globally imported earlier
 import "chai-dom"
 import {LitElement, html, css, nothing} from "lit"
-import {describe, it} from "selftest"
+import {Tester} from "selftest"
+
+const test = Tester("editor")
 
 
 // import explicitly, because the autoloader does not work in this context
@@ -194,29 +196,29 @@ function find_value(template, predicate_or_pattern) {
 }
 
 
-await describe("Find Values Utility", async () => {
-  await it('finds values', () => {
+await test("Find Values Utility", async test => {
+  await test('finds values', test => {
     expect(find_value(html`<p></p>`, v => v == "a")).to.be.undefined
     expect(find_value(html`<p>${"a"}</p>`, v => v == "a")).to.equal("a")
     expect(find_value(html`<p>${"a"}</p><a>${"b"}</a>`, v => v == "a")).to.equal("a")
     expect(find_value(html`<p>${"a"}</p><a>${"b"}</a>`, v => v == "b")).to.equal("b")
     expect(find_value(html`<p>${"a"}</p><a>${"b"}</a>`, v => v == "c")).to.be.undefined
   })
-  await it('finds values in nested templates', () => {
+  await test('finds values in nested templates', test => {
     expect(find_value(html`<p>${html`<p>${"a"}</p>`}</p>`, v => v == "a")).to.equal("a")
     expect(find_value(html`<p>${html`<p>${"a"}</p>`}</p>`, v => v == "b")).to.be.undefined
   })
-  await it('finds attributes', () => {
+  await test('finds attributes', test => {
     expect(find_value(html`<p a=${"aap"}></p>`, v => v == "aap")).to.equal("aap")
     expect(find_value(html`<p ?a=${true}></p>`, v => v == true)).to.equal(true)
   })
-  await it('finds properties', () => {
+  await test('finds properties', test => {
     expect(find_value(html`<p .a=${"aap"}></p>`, v => v == "aap")).to.equal("aap")
   })
-  await it('finds event handlers', () => {
+  await test('finds event handlers', test => {
     expect(find_value(html`<p @a=${e => e}></p>`, v => v.toString() == "e => e")).to.be.a('function')
   })
-  await it('uses string as pattern', () => {
+  await test('uses string as pattern', test => {
     expect(find_value(html`<p>${e => e}</p>`, /e => e/)).to.be.a('function')
   })
 
@@ -238,35 +240,35 @@ async function with_host(tests) {
 }
 
 
-await describe("Editor", async () => {
+await test("Editor", async test => {
 
-  await describe("Raw Object", async () => {
+  await test("Raw Object", async test => {
     const editor = new Editor();
     editor.root = "urn:john"
     editor.store = new Store([
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ])
-    await it('has triples', async () => {
+    await test('has triples', async test => {
       const {strings, values} = editor.render()
       expect(values[0].values[0]).to.equal("John Happy")
     })
-    await it('has root', async () => {
+    await test('has root', async test => {
       expect(editor.root).to.equal("urn:john")
     })
   })
 
-  await describe("Create And Delete Triple", async () => {
+  await test("Create And Delete Triple", async test => {
     const editor = new Editor();
     editor.root = "urn:john"
     editor.store = new Store([
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ])
-    await it('has new iempty triple', async () => {
+    await test('has new iempty triple', async test => {
       expect(editor.new_triple.subject).to.equal("")
       expect(editor.new_triple.predicate).to.equal("")
       expect(editor.new_triple.object).to.equal("")
     })
-    await it('can set new triple', async () => {
+    await test('can set new triple', async test => {
       editor.new_subject("urn:john")
       expect(editor.new_triple).to.deep.equal({subject: "urn:john", predicate: "", object: ""})
       editor.new_predicate({target: {value: "Name"}})
@@ -274,22 +276,22 @@ await describe("Editor", async () => {
       editor.new_object({target: {value: "John Happy"}})
       expect(editor.new_triple).to.deep.equal({subject: "urn:john", predicate: "Name", object: "John Happy"})
     })
-    await it('can commit new triple', async () => {
+    await test('can commit new triple', async test => {
       expect(editor.store.length).to.equal(1)
       editor.commit_triple()
       expect(editor.store.length).to.equal(2)
       expect(editor.store.contains({subject: "urn:john", predicate: "Name", object: "John Happy"})).to.be.true
       expect(editor.new_triple).to.deep.equal({subject: "", predicate: "", object: ""})
     })
-    await it('can delete triple', async () => {
+    await test('can delete triple', async test => {
       expect(editor.store.length).to.equal(2)
       editor.delete(editor.store[1])
       expect(editor.store.length).to.equal(1)
     })
   })
 
-  await describe("Raw Rendering", async () => {
-    await it('renders + button', async () => {
+  await test("Raw Rendering", async test => {
+    await test('renders + button', async test => {
       const editor = new Editor();
       const {strings, values: [new_subject_fn]} = editor.render_one_object("urn:does-not-exist")
       new_subject_fn()
@@ -297,13 +299,13 @@ await describe("Editor", async () => {
     })
   })
 
-  await describe("Raw Rendering edit boxes", async () => {
+  await test("Raw Rendering edit boxes", async test => {
     let editor = new Editor([
       {subject: "urn:john", predicate: "Name", object: "John Happy"}
     ])
     editor.root = "urn:john"
     editor.new_subject("urn:pete")
-    await it('renders callbacks for setting triple', async () => {
+    await test('renders callbacks for setting triple', async test => {
       const {strings, values: [new_predicate, enter, new_object, commit_triple]} = editor.render_triple_edit()
       new_predicate({target: {value: "Name"}})
       expect(enter).to.be.an('function')
@@ -314,10 +316,10 @@ await describe("Editor", async () => {
     })
   })
 
-  await describe("Raw Rendering of One Node", async () => {
+  await test("Raw Rendering of One Node", async test => {
     const editor = new Editor([{subject: "urn:john", predicate: "Name", object: "John Happy"}])
     editor.root = "urn:john"
-    await it('renders callbacks for deleting triple', async () => {
+    await test('renders callbacks for deleting triple', async test => {
       const [{values: [predicate, delete_callback, object_tree_item]}] = editor.render_one_object("urn:john")
       expect(predicate).to.equal("Name")
       expect(delete_callback).to.be.an('function')
@@ -330,12 +332,12 @@ await describe("Editor", async () => {
   })
 
 
-  await describe("Rendering of DOM", async () => {
+  await test("Rendering of DOM", async test => {
     await with_host(async host => {
       const edit = document.createElement('editor-element')
       host.appendChild(edit)
 
-      await it("is not understood by Erik", async () => {
+      await test("is not understood by Erik", async test => {
         expect({}.a ? "1" : "0").to.equal("0")
         expect({a: ""}.a ? "1" : "0").to.equal("0")
         expect({a: "A"}.a ? "disabled" : "0").to.equal("disabled")
@@ -348,7 +350,7 @@ await describe("Editor", async () => {
         expect(v2).to.deep.equal(["disabled"])
       })
 
-      await it("is also not understood by Erik", async () => {
+      await test("is also not understood by Erik", async test => {
         const e0 = new Editor()
         const e1 = document.createElement("editor-element")
         const p0 = Object.getOwnPropertyNames(e0)
@@ -361,7 +363,7 @@ await describe("Editor", async () => {
         expect(e1.renderRoot).not.to.be.undefined
       })
 
-      await it('renders empty editor', async () => {
+      await test('renders empty editor', async test => {
         await edit.updateComplete
         const input = edit.renderRoot.querySelector('sl-card div[slot=header] sl-input')
         expect(input).attr('placeholder', '<enter URI>')
@@ -371,7 +373,7 @@ await describe("Editor", async () => {
         expect(tree).to.be.null
       }) 
 
-      await it('edit and save main URI', async () => {
+      await test('edit and save main URI', async test => {
         edit.set_root("urn:j")
         await edit.updateComplete
         const save = edit.renderRoot.querySelector('sl-icon-button[name="save"]')
@@ -381,7 +383,7 @@ await describe("Editor", async () => {
         expect(edit.root).to.equal("urn:j")
       })
 
-      await it("show input fields when '+' pressed", async () => {
+      await test("show input fields when '+' pressed", async test => {
         const plus = edit.renderRoot.querySelector('sl-icon-button[name="plus"]')
         plus.click()
         await edit.updateComplete
@@ -392,7 +394,7 @@ await describe("Editor", async () => {
         //expect(pred_input).to.have.property('hasFocus', true) // way to difficult
       })
 
-      await it('moves focus to object on enter', async () => {
+      await test('moves focus to object on enter', async test => {
         const pred_input = edit.renderRoot.querySelector('sl-input[name=predicate]')
         const obj_input = edit.renderRoot.querySelector('sl-input[name=object]')
         expect(pred_input).to.have.property('hasFocus', false)
@@ -403,7 +405,7 @@ await describe("Editor", async () => {
         expect(obj_input).to.have.property('hasFocus', true)
       })
 
-      await it('saves root', async () => {
+      await test('saves root', async test => {
         edit.set_root("urn:john")
         edit.save_root()
         await edit.updateComplete
@@ -411,7 +413,7 @@ await describe("Editor", async () => {
         expect(plus).not.to.be.null
       })
 
-      await it('renders plus button', async () => {
+      await test('renders plus button', async test => {
         await with_host(async host => {
           const edit = document.createElement('editor-element')
           edit.root = "urn:john"
@@ -424,7 +426,7 @@ await describe("Editor", async () => {
         })
       })
 
-      await it('renders delete button', async () => {
+      await test('renders delete button', async test => {
         await with_host(async host => {
           const edit = document.createElement('editor-element')
           edit.root = "urn:john"
@@ -440,14 +442,14 @@ await describe("Editor", async () => {
   })
 
 
-  await describe("Send updates to Store", async () => {
+  await test("Send updates to Store", async test => {
     let triples = []
     const editor = new Editor(triples);
     editor.root = "urn:john"
     editor.new_subject("urn:john")
     editor.new_predicate({target: {value: "Name"}})
     editor.new_object({target: {value: "John Happy"}})
-    await it('sends update to server', async () => {
+    await test('sends update to server', async test => {
       await editor.publish_triple()
       expect(triples).to.deep.equal([{subject: "urn:john", predicate: "Name", object: "John Happy"}])
     })

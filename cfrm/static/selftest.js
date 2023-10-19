@@ -66,7 +66,9 @@ export function Tester(message, body, indent="") {
     return b
   }
   run.then = (...a) => { Promise.allSettled(bodies).then(...a) }
-  if (body)
+  if (body) {
+    if (body.length == 0)
+      console.warn("Body should accept one argument: the subtester.")
     try {
       return body(run)
     } catch (e) {
@@ -76,6 +78,7 @@ export function Tester(message, body, indent="") {
       console.error(message, actual || expected ? {actual, expected} : e)
       throw 'stop on first failure'
     }
+  }
   return run
 }
 
@@ -106,7 +109,7 @@ with_console_interception(log => {
 
 with_console_interception(log => {
   try {
-    selftest("succeeding test", () => {
+    selftest("succeeding test", _ => {
       "no error"
     })
     console.assert(log[0] == "  ↳ succeeding test", log)
@@ -119,7 +122,7 @@ with_console_interception(log => {
 with_console_interception((log, err) => {
   try {
     selftest("failing test", sub => {
-      sub("next error log is expected", () => {
+      sub("next error log is expected", _ => {
         throw new Error("expected failure")
       })
     })
@@ -134,13 +137,13 @@ with_console_interception((log, err) => {
 
 let trace = []
 selftest("all synchronous test", test => {
-  selftest("one subtest", () => {
+  selftest("one subtest", _ => {
     trace.push("one")
   })
-  selftest("two subtest", () => {
+  selftest("two subtest", _ => {
     trace.push("two")
   })
-  selftest("result", () => {
+  selftest("result", _ => {
     expect(trace).to.deep.equal(["one", "two"])
     trace.push("result")
   })
@@ -158,13 +161,13 @@ await selftest("an asynchronous test", async test => {
 
 trace = []
 selftest("three parallel subtests", async subtest => {
-  subtest("test A", async () => {
+  subtest("test A", async _ => {
     trace.push("A0")
     await sleep(20)
     trace.push("A1")
   })
   subtest("test B", async subsubtest => {
-    subsubtest("test C", async () => {
+    subsubtest("test C", async _ => {
       trace.push("C0")
       await sleep(14)
       trace.push("C1")
