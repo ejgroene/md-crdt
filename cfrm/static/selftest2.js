@@ -1,38 +1,61 @@
 
-
-import "chai"                               // pollute global namespace with 'chai'
-const {expect} = chai                       // chai is globally imported earlier
-
-chai.config.includeStack = false
-chai.config.showDiff = false
+import "chai"           // pollute global namespace with 'chai'
+const {expect} = chai
 
 
-function sleep(ms) {
+/**
+* Returns a promise that resolves after ms milliseconds.
+* @param {number} ms - number of milliseconds to sleep
+* @returns {Promise}
+*/
+export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 
-function with_console_interception(body) {
-  const l = console.log
-  const e = console.error
+/**
+* Runs a piece of code with console.log and console.error intercepted.
+* The intercepted messages are passed to body.
+* Messages to console.log are propagated to the original,
+* messages to console.error are not.
+* @param {Function} body - body(log, err) is called with two arrays of messages
+*                          logged to console.log and console.error.
+*/
+export function with_console_interception(body) {
+  const config = [
+    {name: "log", original: console.log, messages: [], propagate: true},
+    {name: "error", original: console.error, messages: [], propagate: false}
+  ]
   try {
-    let log = []
-    console.log = (...a) => {
-      log.push(a)
-      l.call(console, ...a)
-    }
-    let err = []
-    console.error = (...a) => {
-      err.push(a)
-      e.call(console, ...a)
-    }
-    body(log, err)
+    for (const {name, original, messages, propagate} of config)
+      console[name] = (...a) => {
+        messages.push(a)
+        if (propagate)
+          original.call(console, ...a)
+      }
+    body(...config.map(c => c.messages))
   } finally {
-    console.log = l
+    for (const {name, original} of config)
+      console[name] = original
   }
 }
 
-
+/**
+* Runs tests (body) with given message and subtests.
+* @param {string} message - message to log
+* @param {Function} body - body(subtester) is called with a function to run subtests.
+* @returns {Function} - without body, returns a function to run tests.
+* The returned function returns a promise that resolves when all subtests are done.
+* Each test can be async and waited for with await, or not.
+  Typical usage:
+    const test = Tester("magic library")
+    test("magic", sub => {
+      sub("magic works", subsub => {
+        expect(magic(1)).to.equal(2)
+      })
+    })
+  See examples below.
+*/
 export function Tester(message, body, indent="") {
   if (message)
     console.log(indent + (indent ? '↳ ' : '') + message)
@@ -78,17 +101,13 @@ with_console_interception(log => {
   let test1 = subtest("test1")
   assert_invariants(test1)
   console.assert(log[1] == "    ↳ test1", log)
-
-  //selftest("test2", test2 => {
-  //  expect(2).to.equal(1)
-  //})
 })
 
 
 with_console_interception(log => {
   try {
     selftest("succeeding test", () => {
-      expect(1).to.equal(1)
+      "no error"
     })
     console.assert(log[0] == "  ↳ succeeding test", log)
   } catch (e) {
@@ -100,15 +119,14 @@ with_console_interception(log => {
 with_console_interception((log, err) => {
   try {
     selftest("failing test", sub => {
-      sub("subtest", () => {
-        expect(1).to.equal(2)
+      sub("next error log is expected", () => {
+        throw new Error("expected failure")
       })
     })
   } catch (e) {
     console.assert(log[0] == "  ↳ failing test", log)
-    console.assert(log[1] == "    ↳ subtest", log)
-    console.assert(err[0][0] == "expected 1 to equal 2", err)
-    //console.assert(err.length == 1, err)
+    console.assert(log[1] == "    ↳ next error log is expected", log)
+    console.assert(err[0][0] == "expected failure", err)
     console.assert("stop on first failure", e.message)
   }
 })
