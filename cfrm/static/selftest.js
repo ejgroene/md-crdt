@@ -65,18 +65,25 @@ export function Tester(message, body, indent="") {
     bodies.push(b)
     return b
   }
+  function handle_error(e) {
+    if (indent.length > 2) // propagate exception to top level
+      throw e
+    const {message, actual, expected} = e
+    console.error(message, actual || expected ? {actual, expected} : e)
+    throw 'stop on first failure'
+  }
   run.then = (...a) => { Promise.allSettled(bodies).then(...a) }
   if (body) {
     if (body.length == 0)
       console.warn("Body should accept one argument: the subtester.")
     try {
-      return body(run)
+      const result = body(run)
+      if (result instanceof Promise)    // somehow test this TODO
+        return result.catch(handle_error)
+      else
+        return result
     } catch (e) {
-      if (indent.length > 2) // propagate exception to top level
-        throw e
-      const {message, actual, expected} = e
-      console.error(message, actual || expected ? {actual, expected} : e)
-      throw 'stop on first failure'
+      handle_error(e)
     }
   }
   return run

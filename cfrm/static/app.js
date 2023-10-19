@@ -27,8 +27,8 @@ export function load_test_data(root) {
 
 
 
-test("App Test", () => {
-  it('Just a Placeholder', () => {
+test("App Test", test => {
+  test('Just a Placeholder', test => {
     assert("my first test")
   })
 })

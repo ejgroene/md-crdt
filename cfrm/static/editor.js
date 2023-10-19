@@ -103,7 +103,7 @@ export class Editor extends LitElement {
           name="predicate"
           placeholder="predicate"
           @sl-input=${e => this.new_predicate(e)}
-          @sl-change=${e => this.renderRoot.querySelector('sl-input[name=object]').focus()}>
+          @sl-change=${e => this.renderRoot.querySelector('sl-input[name=object]').focus() }>
         </sl-input>
         <sl-tree-item>
           <sl-input name="object" placeholder="value" @sl-input=${e => this.new_object(e)}></sl-input>
@@ -337,7 +337,7 @@ await test("Editor", async test => {
       const edit = document.createElement('editor-element')
       host.appendChild(edit)
 
-      await test("is not understood by Erik", async test => {
+      test("is not understood by Erik", test => {
         expect({}.a ? "1" : "0").to.equal("0")
         expect({a: ""}.a ? "1" : "0").to.equal("0")
         expect({a: "A"}.a ? "disabled" : "0").to.equal("disabled")
@@ -350,7 +350,7 @@ await test("Editor", async test => {
         expect(v2).to.deep.equal(["disabled"])
       })
 
-      await test("is also not understood by Erik", async test => {
+      test("is also not understood by Erik", async test => {
         const e0 = new Editor()
         const e1 = document.createElement("editor-element")
         const p0 = Object.getOwnPropertyNames(e0)
@@ -384,6 +384,7 @@ await test("Editor", async test => {
       })
 
       await test("show input fields when '+' pressed", async test => {
+        await edit.updateComplete
         const plus = edit.renderRoot.querySelector('sl-icon-button[name="plus"]')
         plus.click()
         await edit.updateComplete
@@ -396,13 +397,13 @@ await test("Editor", async test => {
 
       await test('moves focus to object on enter', async test => {
         const pred_input = edit.renderRoot.querySelector('sl-input[name=predicate]')
-        const obj_input = edit.renderRoot.querySelector('sl-input[name=object]')
         expect(pred_input).to.have.property('hasFocus', false)
         const e = new CustomEvent('sl-change', {bubbles: true, composed: true})
         pred_input.dispatchEvent(e)
         edit.requestUpdate()
         await edit.updateComplete
-        expect(obj_input).to.have.property('hasFocus', true)
+        const obj_input = edit.renderRoot.querySelector('sl-input[name=object]')
+        expect(edit.renderRoot.activeElement).to.equal(obj_input)
       })
 
       await test('saves root', async test => {
