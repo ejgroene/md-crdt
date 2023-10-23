@@ -44,6 +44,8 @@ export function with_console_interception(body) {
 * Runs tests (body) with given message and subtests.
 * @param {string} message - message to log
 * @param {Function} body - body(subtester) is called with a function to run subtests.
+* @param {Array} parents - list of parent messages, for internal use only.
+* @param {boolean} stop_on_failure - if true, stop all tests on first failure.
 * @returns {Function} - without body, returns a function to run tests.
 * The returned function returns a promise that resolves when all subtests are done.
 * Each test can be async and waited for with await, or not.
@@ -80,30 +82,28 @@ export function Tester(message, body, parents=[], stop_on_failure=true) {
         + (parents.length ? '↳ ' : '')
         + message
         + (is_async_function(body) ? " ⟲" : ""))
-  parents = [...parents, message]
+  const my_parents = [...parents, message]
   const my_line = line++
   const bodies = []
-  function run(message, body, stop_on_failure=true) {
-    const b = Tester(message, body, parents, stop_on_failure)
+  function run(message, body, stop=stop_on_failure) {
+    const b = Tester(message, body, my_parents, stop)
     bodies.push(b)
     return b
   }
   run.then = (...a) => { Promise.allSettled(bodies).then(...a) }
-  if (body) {
-    if (body.length == 0) 
-      console.warn("Body should accept one argument: the subtester.")
-    const result = body(run)
-    if (result instanceof Promise)
-      return result.catch(e => {
-        console.warn("Asynchronous test ["+ my_line + "] failed:", parents.join(" > "))
+  if (!body)
+    return run
+  if (body.length == 0) 
+    console.warn("Body should accept one argument: the subtester.")
+  const result = body(run)
+  return (result instanceof Promise)
+    ? result.catch(e => {
+        console.warn("Asynchronous test ["+ my_line + "] failed:", my_parents.join(" > "))
         console.error(e)
         if (stop_on_failure)
           panic = true
       })
-    else
-      return result
-  }
-  return run
+    : result
 }
 
 
@@ -214,9 +214,9 @@ selftest("check order once again", _ => {
 
 selftest("Async Body Let Loose", subtest => {
   // Uncomment this to verify if async errors are printed correctly
-  //subtest("one test in parallel", async _ => {
-  //  throw new Error("expected failure")
-  //}, false)
+  subtest("one test in parallel", async _ => {
+    throw new Error("expected failure")
+  }, false)
   subtest("another  test in parallel", async _ => {
     // ...
   })
