@@ -74,6 +74,10 @@ let line = 1      // line number of the last console.log
 
 
 export function Tester(message, body, parents=[], stop_on_failure=true) {
+  if (message instanceof Function) {
+    body = message
+    message = message.name ? message.name : message.toString()
+  }
   if (panic)
     return Tester // allow further calls to Tester, but do nothing
   if (message)
@@ -213,9 +217,9 @@ selftest("check order once again", _ => {
 
 
 selftest("Async Body Let Loose", subtest => {
-  // Uncomment this to verify if async errors are printed correctly
   subtest("one test in parallel", async _ => {
-    throw new Error("expected failure")
+    // Uncomment this to verify if async errors are printed correctly
+    // throw new Error("expected failure")
   }, false)
   subtest("another  test in parallel", async _ => {
     // ...
@@ -273,11 +277,59 @@ await asynctest("top", async subtest => {
   await sleep(3)
 })
 
+
 asynctest("check order once again", _ => {
   expect(trace).to.deep.equal(["top0", "sub0", "subsub", "sub1", "top1"])
 })
 
-const new_test = selftest("New Test")
-new_test("new test", _ => {
-  // dus
+
+const tests_without_message = selftest("Tests without message")
+with_console_interception(log => {
+  tests_without_message(complete => Boolean(`This ${complete} function expression is logged`))
+  tests_without_message(function test_something_specific(_) {})
+  expect(log[0][0]).to.equal("[32]     ↳ complete => Boolean(`This ${complete} function expression is logged`)")
+  expect(log[1][0]).to.equal("[33]     ↳ test_something_specific")
+})
+
+
+selftest("Bind Lambda", bindlamda => {
+  bindlamda("cannot bind lambda", _ => {
+    const f = _ => this
+    expect(f()).to.equal(undefined)
+    expect(f.bind(1)()).to.equal(undefined)
+  })
+  bindlamda("can bind function", _ => {
+    const f = function() { return this }
+    expect(f()).to.equal(undefined)
+    expect(f.bind(1)()).to.equal(1)
+  })
+  bindlamda("class and this", _ => {
+    class A {
+      f() { return this }  // ends up in A.prototype.f
+      g = () => this       // closure only, not in A.prototype
+    }
+    const a = new A()
+    expect(a.f()).to.equal(a)  // here a is bound to f
+    expect(a.g()).to.equal(a)  // here a is in closure
+    const af = a.f
+    expect(af).to.equal(A.prototype.f) // the . just give unbound function
+    expect(af()).to.equal(undefined)   // then calling it does not bind it
+    expect(a.f()).to.equal(a)          // it binds using the . and () expression together
+    const ag = a.g
+    expect(ag).to.not.equal(A.prototype.g)    // g is not on prototype
+    expect(A.prototype.g).to.equal(undefined)
+    expect(ag()).to.equal(a)                  // but it is bound to a in closure
+    expect(ag.bind(42)()).to.equal(a)         // binding does not change anything
+  })
+  bindlamda("a small delegation chain", _ => {
+    const a = {
+      f: _ => this,         // this only binds in classes or methods
+      g() {return this}     // binds, because method
+    }
+    const b = Object.create(a)
+    expect(a.f()).to.equal(undefined)
+    expect(b.f()).to.equal(undefined)
+    expect(a.g()).to.equal(a)
+    expect(b.g()).to.equal(b)
+  })
 })
