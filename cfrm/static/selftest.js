@@ -56,35 +56,52 @@ export function with_console_interception(body) {
     })
   See examples below.
 */
-export function Tester(message, body, indent="") {
+
+
+function is_async_function(f) {
+  return f && f.constructor.name == "AsyncFunction"
+}
+
+console.assert(is_async_function(async _ => {}))
+console.assert(!is_async_function(_ => {}))
+console.assert(!is_async_function(undefined))
+
+
+let panic = false // stops all tests on first failure
+let line = 1      // line number of the last console.log
+
+
+export function Tester(message, body, parents=[], stop_on_failure=true) {
+  if (panic)
+    return Tester // allow further calls to Tester, but do nothing
   if (message)
-    console.log(indent + (indent ? '↳ ' : '') + message)
+    console.log(`[${line}] `
+        + "  ".repeat(parents.length)
+        + (parents.length ? '↳ ' : '')
+        + message
+        + (is_async_function(body) ? " ⟲" : ""))
+  parents = [...parents, message]
+  const my_line = line++
   const bodies = []
-  function run(message, body) {
-    const b = Tester(message, body, indent + "  ")
+  function run(message, body, stop_on_failure=true) {
+    const b = Tester(message, body, parents, stop_on_failure)
     bodies.push(b)
     return b
   }
-  function handle_error(e) {
-    if (indent.length > 2) // propagate exception to top level
-      throw e
-    const {message, actual, expected} = e
-    console.error(message, actual || expected ? {actual, expected} : e)
-    throw 'stop on first failure'
-  }
   run.then = (...a) => { Promise.allSettled(bodies).then(...a) }
   if (body) {
-    if (body.length == 0)
+    if (body.length == 0) 
       console.warn("Body should accept one argument: the subtester.")
-    try {
-      const result = body(run)
-      if (result instanceof Promise)    // somehow test this TODO
-        return result.catch(handle_error)
-      else
-        return result
-    } catch (e) {
-      handle_error(e)
-    }
+    const result = body(run)
+    if (result instanceof Promise)
+      return result.catch(e => {
+        console.warn("Asynchronous test ["+ my_line + "] failed:", parents.join(" > "))
+        console.error(e)
+        if (stop_on_failure)
+          panic = true
+      })
+    else
+      return result
   }
   return run
 }
@@ -103,23 +120,23 @@ with_console_interception(log => {
   }
   selftest = Tester("SELFTEST")
   assert_invariants(selftest)
-  console.assert(log[0] == "SELFTEST", log)
+  console.assert(log[0] == "[1] SELFTEST", log)
   let subtest = selftest() // anonymous subtest
   assert_invariants(subtest)
   console.assert(log[1] == undefined, log)
 
   let test1 = subtest("test1")
   assert_invariants(test1)
-  console.assert(log[1] == "    ↳ test1", log)
+  console.assert(log[1] == "[3]     ↳ test1", log)
 })
 
 
 with_console_interception(log => {
   try {
-    selftest("succeeding test", _ => {
-      "no error"
-    })
-    console.assert(log[0] == "  ↳ succeeding test", log)
+  selftest("succeeding test", _ => {
+    "no error"
+  })
+    console.assert(log[0] == "[4]   ↳ succeeding test", log)
   } catch (e) {
     console.assert(false, "succeeding test failed", e)
   }
@@ -131,12 +148,11 @@ with_console_interception((log, err) => {
     selftest("failing test", sub => {
       sub("next error log is expected", _ => {
         throw new Error("expected failure")
-      })
+      }, false)
     })
   } catch (e) {
-    console.assert(log[0] == "  ↳ failing test", log)
-    console.assert(log[1] == "    ↳ next error log is expected", log)
-    console.assert(err[0][0] == "expected failure", err)
+    console.assert(log[0] == "[5]   ↳ failing test", log)
+    console.assert(log[1] == "[6]     ↳ next error log is expected", log)
     console.assert("stop on first failure", e.message)
   }
 })
@@ -155,7 +171,10 @@ selftest("all synchronous test", test => {
     trace.push("result")
   })
 })
-expect(trace).to.deep.equal(["one", "two", "result"])
+
+selftest("check result again", _ => {
+  expect(trace).to.deep.equal(["one", "two", "result"])
+})
 
 
 trace = []
@@ -188,11 +207,31 @@ selftest("three parallel subtests", async subtest => {
 })
 
 await selftest
-expect(trace).to.deep.equal(["A0", "C0", "B0", "B1", "C1", "A1"])
+selftest("check order once again", _ => {
+  expect(trace).to.deep.equal(["A0", "C0", "B0", "B1", "C1", "A1"])
+})
+
+
+selftest("Async Body Let Loose", subtest => {
+  // Uncomment this to verify if async errors are printed correctly
+  //subtest("one test in parallel", async _ => {
+  //  throw new Error("expected failure")
+  //}, false)
+  subtest("another  test in parallel", async _ => {
+    // ...
+  })
+})
+
+// at this point, the two tests above are still running in parallel
+// most likely, they will run at the next sleep
+// I don't know how to wait for them to finish (yet)
+// AND intercept the console at exactly that time
+// to avoid polluting the console with the error message
+// the test is commented out for now
 
 
 trace = []
-const toptest = Tester("TOPTEST")
+const toptest = Tester("Nested Sync Test")
 toptest("top", subtest => {
   trace.push("top0")
   subtest("sub", subtest => {
@@ -204,11 +243,14 @@ toptest("top", subtest => {
   })
   trace.push("top1")
 })
-expect(trace).to.deep.equal(["top0", "sub0", "subsub", "sub1", "top1"])
+
+toptest("check order once again", _ => {
+  expect(trace).to.deep.equal(["top0", "sub0", "subsub", "sub1", "top1"])
+})
 
 
 trace = []
-const asynctest = Tester("TOPTEST")
+const asynctest = Tester("Nested Async Test")
 await asynctest("top", async subtest => {
   await sleep(1)
   trace.push("top0")
@@ -230,5 +272,12 @@ await asynctest("top", async subtest => {
   trace.push("top1")
   await sleep(3)
 })
-expect(trace).to.deep.equal(["top0", "sub0", "subsub", "sub1", "top1"])
 
+asynctest("check order once again", _ => {
+  expect(trace).to.deep.equal(["top0", "sub0", "subsub", "sub1", "top1"])
+})
+
+const new_test = selftest("New Test")
+new_test("new test", _ => {
+  // dus
+})
